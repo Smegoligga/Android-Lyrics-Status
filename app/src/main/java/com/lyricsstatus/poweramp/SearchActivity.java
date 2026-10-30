@@ -34,6 +34,8 @@ public final class SearchActivity extends Activity {
     private boolean advancedOn;
     private String prefilled = "";
     private int searchGen;
+    private int sortMode = com.lyricsstatus.poweramp.core.LyricsSearch.SORT_BEST;
+    private List<LyricsSearch.Record> lastResults;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,7 +66,9 @@ public final class SearchActivity extends Activity {
 
         root.addView(skin.header("Search lyrics", track == null ? "Nothing is playing. You can still search."
                 : "Now playing: " + track.title + (track.artist.isEmpty() ? "" : " - " + track.artist)
-                + (track.album.isEmpty() ? "" : " (" + track.album + ")")));
+                + (track.album.isEmpty() ? "" : " (" + track.album + ")")
+                + (track.durationMs > 0 ? "\nLength: " + com.lyricsstatus.poweramp.core.Formatter.formatSeconds(
+                Math.round(track.durationMs / 1000.0)) : "")));
 
         LinearLayout g = skin.group(root, "Search");
         // Simple search: one box, pre-filled with "song artist"
@@ -104,6 +108,12 @@ public final class SearchActivity extends Activity {
         btns.addView(skin.button("Search", true, v -> search()));
         btns.addView(skin.button("Back", false, v -> finish()));
         g.addView(btns);
+        g.addView(skin.choice("Sort results", new String[]{
+                "Best match: synced lyrics with the same length first",
+                "Closest length to your song"}, sortMode, i -> {
+            sortMode = i;
+            if (lastResults != null) render(lastResults);
+        }));
         status = skin.hint("");
         g.addView(status);
 
@@ -199,23 +209,40 @@ public final class SearchActivity extends Activity {
     }
 
     private void render(List<LyricsSearch.Record> list) {
+        lastResults = list;
         results.removeAllViews();
         if (list.isEmpty()) {
             results.addView(skin.hint("No results."));
             return;
         }
-        for (LyricsSearch.Record r : list) results.addView(row(r));
+        long dur = track != null ? track.durationMs : 0;
+        String title = track != null ? track.title : "";
+        List<LyricsSearch.Record> ranked = LyricsSearch.rank(list, dur, title, sortMode);
+        for (int i = 0; i < ranked.size(); i++) {
+            LyricsSearch.Record r = ranked.get(i);
+            boolean best = i == 0 && sortMode == LyricsSearch.SORT_BEST && track != null
+                    && LyricsSearch.isGoodMatch(r, dur, title);
+            results.addView(row(r, best));
+        }
     }
 
     /** One result: title + details; tap to preview and choose. */
-    private View row(LyricsSearch.Record r) {
+    private View row(LyricsSearch.Record r, boolean best) {
         LinearLayout box = skin.box();
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
         lp.topMargin = skin.dp(6);
         box.setLayoutParams(lp);
         TextView title = skin.text(r.track, 15, true);
         box.addView(title);
-        box.addView(skin.hint(LyricsSearch.describe(r)));
+        if (best) {
+            TextView tag = skin.text("Best match", 12, true);
+            tag.setTextColor(skin.highlight());
+            box.addView(tag);
+        }
+        String kind = r.instrumental ? "Instrumental" : r.isSynced() ? "Synced" : r.plain.isEmpty() ? "No lyrics" : "Not synced";
+        box.addView(skin.hint(r.artist + (r.album.isEmpty() ? "" : " · " + r.album)));
+        box.addView(skin.hint(LyricsSearch.lengthVsSong(r, track != null ? track.durationMs : 0) + " · " + kind
+                + " · tap to see the lyrics"));
         LinearLayout detail = new LinearLayout(this);
         detail.setOrientation(LinearLayout.VERTICAL);
         detail.setVisibility(View.GONE);
@@ -234,18 +261,7 @@ public final class SearchActivity extends Activity {
     }
 
     private void fillDetail(LinearLayout d, LyricsSearch.Record r) {
-        Lyrics l = r.lyrics("preview");
-        StringBuilder sb = new StringBuilder();
-        int n = 0;
-        for (Lyrics.Line line : l.lines) {
-            if (line.text.isEmpty()) continue;
-            sb.append(line.text).append('\n');
-            if (++n == 6) break;
-        }
-        TextView preview = skin.text(sb.length() == 0 ? (r.instrumental ? "Instrumental" : "No lyrics") : sb.toString().trim(), 14, false);
-        preview.setTextColor(skin.highlight());
-        preview.setMaxLines(6);
-        d.addView(preview);
+        d.addView(timedLyrics(r));
         if (!r.isSynced() && !r.plain.isEmpty()) {
             d.addView(skin.hint("Not synced: it can't follow the music, so the status won't change line by line."));
         }
@@ -267,6 +283,43 @@ public final class SearchActivity extends Activity {
             b.addView(skin.button("Use this album for my album", false, v -> useAlbum(r)));
         }
         d.addView(b);
+    }
+
+    /** A short scrollable window with every line and its exact timing, like "[0:12.34] text". */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    private View timedLyrics(LyricsSearch.Record r) {
+        Lyrics l = r.lyrics("preview");
+        StringBuilder sb = new StringBuilder();
+        for (Lyrics.Line line : l.lines) {
+            String stamp = l.synced ? com.lyricsstatus.poweramp.core.Formatter.lrcStamp(line.time)
+                    .replaceFirst("^\\[0?(\\d+):", "[$1:") : "[--:--]";
+            sb.append(stamp).append(' ').append(line.text.isEmpty() ? "♪" : line.text).append('\n');
+        }
+        TextView lines = skin.text(sb.length() == 0 ? (r.instrumental ? "Instrumental" : "No lyrics")
+                : sb.toString().trim(), 13, false);
+        lines.setTypeface(android.graphics.Typeface.MONOSPACE);
+        lines.setEllipsize(null);
+        lines.setTextIsSelectable(false);
+        ScrollView window = new ScrollView(this);
+        window.setVerticalScrollBarEnabled(true);
+        window.setScrollbarFadingEnabled(false);
+        window.addView(lines);
+        // let this small window scroll inside the page's own scrolling
+        window.setOnTouchListener((v, e) -> {
+            v.getParent().requestDisallowInterceptTouchEvent(e.getActionMasked() != android.view.MotionEvent.ACTION_UP
+                    && e.getActionMasked() != android.view.MotionEvent.ACTION_CANCEL);
+            return false;
+        });
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(0x22000000);
+        bg.setCornerRadius(skin.id().equals("cs16") ? 0 : skin.dp(4));
+        window.setBackground(bg);
+        window.setPadding(skin.dp(8), skin.dp(6), skin.dp(8), skin.dp(6));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, skin.dp(200));
+        lp.topMargin = skin.dp(6);
+        lp.bottomMargin = skin.dp(4);
+        window.setLayoutParams(lp);
+        return window;
     }
 
     /** Map the playing track's album to the result's album, then check the current song is on it. */

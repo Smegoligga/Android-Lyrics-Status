@@ -276,6 +276,49 @@ public final class LyricsSearch {
         return out;
     }
 
+    /** Sort modes for search results. */
+    public static final int SORT_BEST = 0, SORT_LENGTH = 1;
+
+    /**
+     * Order results for the song that's playing.
+     * BEST: synced lyrics whose length matches (within 3 s) and whose title matches come first, then by
+     * length difference. LENGTH: purely by how close the length is. Without a known length, synced first.
+     */
+    public static List<Record> rank(List<Record> in, long durationMs, String title, int mode) {
+        String want = key(cleanTitle(title));
+        List<Record> out = new ArrayList<>(in);
+        out.sort((x, y) -> Double.compare(score(x, durationMs, want, mode), score(y, durationMs, want, mode)));
+        return out;
+    }
+
+    static double score(Record r, long durationMs, String wantKey, int mode) {
+        double diff = durationMs > 0 && r.duration > 0 ? Math.abs(r.duration - durationMs / 1000.0) : 0;
+        if (durationMs > 0 && r.duration <= 0) diff = 9999;
+        if (mode == SORT_LENGTH) return diff + (r.isSynced() ? 0 : 0.001);
+        double s = diff;
+        if (!r.isSynced()) s += 10_000;            // plain lyrics can't follow the music
+        if (durationMs > 0 && diff > 3) s += 1_000; // different version/edit
+        if (!wantKey.isEmpty()) {
+            String name = key(cleanTitle(r.track));
+            if (!name.equals(wantKey)) s += name.contains(wantKey) || wantKey.contains(name) ? 100 : 500;
+        }
+        return s;
+    }
+
+    /** True when this record is a good automatic pick for the song: synced, title matches, length within 3 s. */
+    public static boolean isGoodMatch(Record r, long durationMs, String title) {
+        return score(r, durationMs, key(cleanTitle(title)), SORT_BEST) < 100;
+    }
+
+    /** "5:22 (−1 s)" style length with the difference to the playing song. */
+    public static String lengthVsSong(Record r, long durationMs) {
+        if (r.duration <= 0) return "length unknown";
+        String len = Formatter.formatSeconds(Math.round(r.duration));
+        if (durationMs <= 0) return len;
+        long d = Math.round(r.duration - durationMs / 1000.0);
+        return len + (d == 0 ? " (same length)" : " (" + (d > 0 ? "+" : "−") + Math.abs(d) + " s)");
+    }
+
     public static String describe(Record r) {
         String d = r.duration > 0 ? Formatter.formatSeconds(Math.round(r.duration)) : "?";
         String kind = r.instrumental ? "Instrumental" : r.isSynced() ? "Synced" : r.plain.isEmpty() ? "No lyrics" : "Plain";
