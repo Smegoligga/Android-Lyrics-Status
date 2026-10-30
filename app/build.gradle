@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.lyricsstatus.poweramp'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.lyricsstatus.poweramp'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0.0'
+    }
+
+    signingConfigs {
+        // A fixed key checked into the repo, so every build (local or GitHub Actions) can update the
+        // previously installed APK. If you publish this app for others, replace it with your own private key.
+        shared {
+            storeFile rootProject.file('keystore/lyricsstatus.jks')
+            storePassword 'lyricsstatus'
+            keyAlias 'lyricsstatus'
+            keyPassword 'lyricsstatus'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.shared
+        }
+        debug {
+            signingConfig signingConfigs.shared
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        encoding 'UTF-8'
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all {
+            outputFileName = "LyricsStatus-Poweramp-${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+}
