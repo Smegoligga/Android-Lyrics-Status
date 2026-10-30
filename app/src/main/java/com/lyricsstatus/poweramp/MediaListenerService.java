@@ -41,12 +41,38 @@ public final class MediaListenerService extends NotificationListenerService {
         public void onSessionDestroyed() {
             detach();
             App.get().engine().onStopped();
+            App.get().onPlaybackActivity(false);
             refreshController();
         }
     };
 
     static boolean isConnected() {
         return current != null;
+    }
+
+    /**
+     * Battery: drop the system's binding so Android can stop our process while nothing plays.
+     * The listener stays enabled; {@link #wake} brings it back.
+     */
+    static void sleep() {
+        MediaListenerService s = current;
+        if (s == null) return;
+        Log.i(App.TAG, "sleeping until playback starts");
+        try {
+            s.requestUnbind();
+        } catch (Exception e) {
+            Log.w(App.TAG, "requestUnbind failed", e);
+        }
+    }
+
+    /** Ask the system to bind the listener again (no-op without notification access). */
+    static void wake(android.content.Context c) {
+        if (current != null) return;
+        try {
+            NotificationListenerService.requestRebind(new ComponentName(c, MediaListenerService.class));
+        } catch (Exception e) {
+            Log.w(App.TAG, "requestRebind failed", e);
+        }
     }
 
     /** Re-pick the followed session (e.g. "only Poweramp" toggled). */
@@ -73,6 +99,7 @@ public final class MediaListenerService extends NotificationListenerService {
             Log.w(App.TAG, "no notification access", e);
         }
         App.get().primeFromPoweramp();
+        if (controller == null) App.get().onPlaybackActivity(false);
     }
 
     @Override
@@ -139,9 +166,11 @@ public final class MediaListenerService extends NotificationListenerService {
         int s = st.getState();
         if (s == PlaybackState.STATE_STOPPED || s == PlaybackState.STATE_NONE || s == PlaybackState.STATE_ERROR) {
             App.get().engine().onStopped();
+            App.get().onPlaybackActivity(false);
             return;
         }
         boolean playing = s == PlaybackState.STATE_PLAYING;
+        App.get().onPlaybackActivity(playing);
         long at = st.getLastPositionUpdateTime();
         if (at <= 0) at = android.os.SystemClock.elapsedRealtime();
         App.get().engine().onPlayback(playing, st.getPosition(), at, playing ? st.getPlaybackSpeed() : 0f);

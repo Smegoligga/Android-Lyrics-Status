@@ -14,10 +14,6 @@ public final class StatusSender {
         String loadOriginal();
 
         void saveOriginal(String json);
-
-        String loadLastSent();
-
-        void saveLastSent(String text);
     }
 
     public interface Listener {
@@ -146,7 +142,6 @@ public final class StatusSender {
             synchronized (lock) {
                 active = false;
             }
-            store.saveLastSent(null);
             listener.onIdle(what);
             return;
         }
@@ -163,11 +158,14 @@ public final class StatusSender {
         synchronized (lock) {
             active = true;
         }
-        store.saveLastSent(op.text);
         listener.onSent(op.text, r.elapsedMs);
     }
 
-    /** Save whatever status the user had, unless it's one of ours left over from a previous run. */
+    /**
+     * Save whatever status the user had, unless it's one of ours left over from a previous run.
+     * Ours always expire within statusExpirySeconds (60 s), so a status that expires within 2 minutes is
+     * ours or about to vanish anyway. This avoids writing to storage on every lyric line.
+     */
     private void captureOriginal(DiscordClient d) {
         try {
             Object cur = d.getCustomStatus();
@@ -177,26 +175,31 @@ public final class StatusSender {
                 return;
             }
             JSONObject o = (JSONObject) cur;
-            String text = o.isNull("text") ? "" : o.optString("text", "");
-            String lastSent = store.loadLastSent();
-            if (lastSent != null && lastSent.equals(text)) return; // it's ours
+            long exp = expiresAt(o);
+            if (exp > 0 && exp - System.currentTimeMillis() < 120_000) return;
             store.saveOriginal(o.toString());
         } catch (Exception ignored) {
         }
     }
 
     private static boolean expired(JSONObject o) {
-        if (o.isNull("expires_at")) return false;
+        long exp = expiresAt(o);
+        return exp > 0 && exp <= System.currentTimeMillis();
+    }
+
+    /** expires_at in epoch ms, or 0 if none/unparseable. */
+    private static long expiresAt(JSONObject o) {
+        if (o.isNull("expires_at")) return 0;
         String exp = o.optString("expires_at", "");
-        if (exp.isEmpty()) return false;
+        if (exp.isEmpty()) return 0;
         try {
             String norm = exp.replaceAll("\\.(\\d{3})\\d*", ".$1").replace("+00:00", "Z");
             if (!norm.contains(".")) norm = norm.replace("Z", ".000Z");
             java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.ROOT);
             f.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-            return f.parse(norm).getTime() <= System.currentTimeMillis();
+            return f.parse(norm).getTime();
         } catch (Exception e) {
-            return false;
+            return 0;
         }
     }
 

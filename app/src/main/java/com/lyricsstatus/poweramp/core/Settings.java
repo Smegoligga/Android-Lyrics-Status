@@ -37,6 +37,11 @@ public final class Settings {
     public int pauseClearSeconds = 15;
     /** How long each status lives on Discord (OvalQuilter used 60 s) so a crashed app never leaves a stale line. */
     public int statusExpirySeconds = 60;
+    /**
+     * Battery saver: minimum seconds between status updates. 0 = every line (like the original).
+     * Fewer requests means the phone's radio can sleep more between lines.
+     */
+    public int minUpdateSeconds = 0;
 
     public Settings copy() {
         Settings s = new Settings();
@@ -60,6 +65,7 @@ public final class Settings {
         s.restoreStatus = restoreStatus;
         s.pauseClearSeconds = pauseClearSeconds;
         s.statusExpirySeconds = statusExpirySeconds;
+        s.minUpdateSeconds = minUpdateSeconds;
         return s;
     }
 

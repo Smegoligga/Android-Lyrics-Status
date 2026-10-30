@@ -50,6 +50,11 @@ public final class App extends Application {
     /** True while a media session from the followed player feeds us exact positions. */
     volatile boolean mediaSessionActive;
 
+    /** How long playback must be idle before the listener sleeps (process can then be stopped). */
+    static final long SLEEP_AFTER_IDLE_MS = 10 * 60 * 1000L;
+    private final Runnable sleepRunnable = MediaListenerService::sleep;
+    private boolean sleepScheduled;
+
     public static App get() {
         return instance;
     }
@@ -145,6 +150,45 @@ public final class App extends Application {
         prefs.save(settings);
         engine.setSettings(settings);
         MediaListenerService.refreshController();
+        if (!settings.enabled) {
+            cancelSleep();
+            MediaListenerService.sleep();
+        } else {
+            MediaListenerService.wake(this);
+            onPlaybackActivity(engine.state().playing);
+        }
+    }
+
+    // ------------------------------------------------------------------ battery: sleep while idle
+
+    /**
+     * Called on every playback change. While nothing plays, a 10-minute timer releases the notification
+     * listener so Android may stop the process entirely; Poweramp's broadcast wakes us when it plays again.
+     * Only possible when following Poweramp only, since other players can't wake us.
+     */
+    void onPlaybackActivity(boolean playing) {
+        if (playing || !canSleep()) {
+            cancelSleep();
+        } else if (!sleepScheduled) {
+            sleepScheduled = true;
+            main.postDelayed(sleepRunnable, settings.enabled ? SLEEP_AFTER_IDLE_MS : 0);
+        }
+    }
+
+    private void cancelSleep() {
+        if (sleepScheduled) {
+            main.removeCallbacks(sleepRunnable);
+            sleepScheduled = false;
+        }
+    }
+
+    private boolean canSleep() {
+        return settings.onlyPoweramp || !settings.enabled;
+    }
+
+    /** Wake the listener when Poweramp does something (it may have been put to sleep). */
+    void wakeForPoweramp() {
+        if (settings.enabled) MediaListenerService.wake(this);
     }
 
     public Engine engine() {
@@ -159,7 +203,12 @@ public final class App extends Application {
 
     /** Poweramp's TRACK_CHANGED: carries the file path, which the media session doesn't. */
     void onPowerampTrack(Bundle b, Bundle extras) {
+        onPowerampTrack(b, extras, true);
+    }
+
+    void onPowerampTrack(Bundle b, Bundle extras, boolean wake) {
         if (b == null) return;
+        if (wake) wakeForPoweramp();
         Track t = PowerampApi.trackFrom(b);
         if (t == null) return;
         engine.onTrack(t);
@@ -173,6 +222,7 @@ public final class App extends Application {
         if (mediaSessionActive || extras == null) return;
         boolean paused = extras.getBoolean(PowerampApi.EXTRA_PAUSED, true);
         int state = extras.getInt(PowerampApi.EXTRA_STATE, -1);
+        onPlaybackActivity(!paused && state != PowerampApi.STATE_STOPPED);
         if (state == PowerampApi.STATE_STOPPED) {
             engine.onStopped();
             return;
@@ -189,7 +239,7 @@ public final class App extends Application {
     void primeFromPoweramp() {
         try {
             Intent track = registerSticky(PowerampApi.ACTION_TRACK_CHANGED);
-            if (track != null) onPowerampTrack(track.getBundleExtra(PowerampApi.EXTRA_TRACK), null);
+            if (track != null) onPowerampTrack(track.getBundleExtra(PowerampApi.EXTRA_TRACK), null, false);
             Intent status = registerSticky(PowerampApi.ACTION_STATUS_CHANGED);
             if (status != null && status.getExtras() != null) onPowerampStatus(status.getExtras());
         } catch (Throwable t) {

@@ -58,10 +58,14 @@ public final class Http {
             }
             int code = c.getResponseCode();
             InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
+            // Reading the body to the end and closing the stream (without disconnect()) returns the socket to
+            // the keep-alive pool, so the next lyric line reuses the TLS connection instead of a new handshake.
             String body = in == null ? "" : readAll(in);
             return new Response(code, body, System.currentTimeMillis() - start);
-        } finally {
+        } catch (IOException e) {
+            // Broken connection: don't put it back in the pool
             c.disconnect();
+            throw e;
         }
     }
 

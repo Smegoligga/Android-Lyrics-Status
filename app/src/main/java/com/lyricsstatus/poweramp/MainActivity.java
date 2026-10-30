@@ -77,6 +77,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (app.settings().enabled) MediaListenerService.wake(this);
         refreshSetup();
         app.main.post(refresher);
     }
@@ -228,6 +229,16 @@ public final class MainActivity extends Activity {
                 (x, v) -> x.sendTimeOffset = clamp(v, -10000, 10000)));
         root.addView(tim);
 
+        // battery
+        section("Battery");
+        LinearLayout bat = card();
+        bat.addView(number("Min. seconds between updates", x -> String.valueOf(x.minUpdateSeconds),
+                (x, v) -> x.minUpdateSeconds = (int) clamp(v, 0, 60)));
+        bat.addView(hint("0 = every lyric line, like the original. Each update is a network request that keeps "
+                + "the radio awake; 5–10 s skips fast lines and noticeably reduces drain while music plays. "
+                + "When Poweramp hasn't played for 10 minutes, the app goes fully to sleep until you press play."));
+        root.addView(bat);
+
         // footer
         TextView foot = text("", 12, false);
         foot.setAlpha(0.7f);
@@ -246,7 +257,8 @@ public final class MainActivity extends Activity {
         Engine.State st = app.engine().state();
         if (st.track == null) {
             nowPlaying.setText("Nothing playing");
-            lyricsInfo.setText(MediaListenerService.isConnected() ? "Start a song in Poweramp" : "Grant notification access below");
+            lyricsInfo.setText(MediaListenerService.isConnected() || notificationAccessGranted()
+                    ? "Start a song in Poweramp" : "Grant notification access below");
             currentLine.setText("");
         } else {
             nowPlaying.setText((st.playing ? "▶ " : "⏸ ") + st.track.title

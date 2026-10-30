@@ -54,6 +54,11 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+            <!-- Battery (Android 13+): notifications aren't used, so only receive the few ongoing ones
+                 instead of being woken for every message, email, etc. -->
+            <meta-data
+                android:name="android.service.notification.default_filter_types"
+                android:value="ongoing" />
         </service>
 
         <!-- Poweramp track/status broadcasts (explicit versions reach background apps) -->

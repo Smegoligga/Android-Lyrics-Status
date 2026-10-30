@@ -38,6 +38,7 @@ public final class Prefs implements StatusSender.Store {
         s.restoreStatus = sp.getBoolean("restoreStatus", d.restoreStatus);
         s.pauseClearSeconds = sp.getInt("pauseClearSeconds", d.pauseClearSeconds);
         s.statusExpirySeconds = sp.getInt("statusExpirySeconds", d.statusExpirySeconds);
+        s.minUpdateSeconds = sp.getInt("minUpdateSeconds", d.minUpdateSeconds);
         return s;
     }
 
@@ -63,6 +64,7 @@ public final class Prefs implements StatusSender.Store {
                 .putBoolean("restoreStatus", s.restoreStatus)
                 .putInt("pauseClearSeconds", s.pauseClearSeconds)
                 .putInt("statusExpirySeconds", s.statusExpirySeconds)
+                .putInt("minUpdateSeconds", s.minUpdateSeconds)
                 .apply();
     }
 
@@ -74,15 +76,5 @@ public final class Prefs implements StatusSender.Store {
     @Override
     public void saveOriginal(String json) {
         sp.edit().putString("originalStatus", json).apply();
-    }
-
-    @Override
-    public String loadLastSent() {
-        return sp.getString("lastSent", null);
-    }
-
-    @Override
-    public void saveLastSent(String text) {
-        sp.edit().putString("lastSent", text).apply();
     }
 }

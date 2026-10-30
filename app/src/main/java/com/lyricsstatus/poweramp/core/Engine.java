@@ -214,10 +214,8 @@ public final class Engine {
         long expiryMs = settings.statusExpirySeconds * 1000L;
         long refreshDue = currentText != null && !idleSent ? lastSendAt + Math.max(10_000, expiryMs - 15_000) : Long.MAX_VALUE;
 
-        if (loading) {
-            schedule(500);
-            return;
-        }
+        // Still looking up lyrics: the loader's callback schedules the next tick, no need to poll
+        if (loading) return;
 
         if (lyrics == null || !lyrics.synced || lyrics.lines.isEmpty()) {
             String tpl = settings.noLyricsStatus == null ? "" : settings.noLyricsStatus.trim();
@@ -237,25 +235,36 @@ public final class Engine {
 
         if (idx >= 0 && idx != currentIdx) {
             Lyrics.Line line = lyrics.lines.get(idx);
-            currentIdx = idx;
-            // Empty LRC lines (instrumental breaks) keep the previous line, like the original
-            if (!line.text.isEmpty()) {
-                String text = Formatter.forLine(settings, line, track);
-                send(text, false);
+            if (line.text.isEmpty()) {
+                // Empty LRC lines (instrumental breaks) keep the previous line, like the original
+                currentIdx = idx;
+            } else {
+                // Battery saver: don't update more often than the minimum gap; when the gap is over,
+                // whatever line is current then gets sent and the ones in between are skipped
+                long gap = Math.max(0, settings.minUpdateSeconds) * 1000L;
+                long wait = gap > 0 && !idleSent ? lastSendAt + gap - now : 0;
+                if (wait > 0) {
+                    schedule(wait);
+                    return;
+                }
+                currentIdx = idx;
+                send(Formatter.forLine(settings, line, track), false);
+                refreshDue = lastSendAt + Math.max(10_000, expiryMs - 15_000);
             }
         } else if (now >= refreshDue) {
             // keep the last line alive through long instrumental parts
             send(currentText, currentTextIsTemplate);
+            refreshDue = lastSendAt + Math.max(10_000, expiryMs - 15_000);
         }
 
-        // sleep until the next line is due (or the refresh), max 1 s to absorb drift
-        long next = 1000;
+        // Sleep exactly until the next line or the expiry refresh. Seeks, pauses and speed changes arrive
+        // as playback callbacks and reschedule this, so no periodic polling is needed.
+        long next = Long.MAX_VALUE;
         if (idx + 1 < lyrics.lines.size()) {
-            long dueIn = (long) ((lyrics.lines.get(idx + 1).time - target) / speed);
-            next = Math.min(next, dueIn);
+            next = (long) ((lyrics.lines.get(idx + 1).time - target) / speed);
         }
         if (refreshDue != Long.MAX_VALUE) next = Math.min(next, refreshDue - now);
-        schedule(Math.max(20, next));
+        if (next != Long.MAX_VALUE) schedule(Math.max(20, next));
     }
 
     private boolean currentTextIsTemplate;

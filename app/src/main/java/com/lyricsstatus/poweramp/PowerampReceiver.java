@@ -21,6 +21,8 @@ public final class PowerampReceiver extends BroadcastReceiver {
                 break;
             case PowerampApi.ACTION_STATUS_CHANGED_EXPLICIT:
             case PowerampApi.ACTION_STATUS_CHANGED:
+                // Poweramp started playing: wake the media listener if it was asleep to save battery
+                if (!intent.getBooleanExtra(PowerampApi.EXTRA_PAUSED, true)) app.wakeForPoweramp();
                 app.onPowerampStatus(intent.getExtras());
                 break;
             default:

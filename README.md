@@ -32,7 +32,7 @@ LyricsStatus for Poweramp is an Android port of [**LyricsStatus** by OvalQuilter
 - **Same formats as the original.** The timestamp, the `Song lyrics -` label, custom templates with all of OvalQuilter's placeholders, and custom emoji (including Nitro emoji) all work.
 - **Puts your status back.** It restores the status you had before when you pause or stop.
 - **Works as a Poweramp lyrics plugin.** Lyrics from LRCLIB also show up inside Poweramp itself.
-- **Battery friendly.** It sleeps until the next line is due instead of polling constantly.
+- **Battery friendly.** It sleeps completely when Poweramp is idle and wakes only when a line is due. An optional battery saver limits how often the status updates.
 - **Small.** It has no third-party libraries and the APK is tiny.
 
 ## 📥 Install
@@ -120,6 +120,25 @@ The app checks the sources in this order and uses the first **synced** lyrics it
 | **Restore my status when idle** | on, after 15 s | Puts back the status you had before LyricsStatus took over. |
 | **Auto offset** | on, 3 samples | Sends each line early by Discord's average response time + 100 ms, like the original. |
 | **Manual offset** | 500 ms | Used when auto offset is off. A higher value makes lines appear earlier. |
+
+### 5. Battery
+
+The app is built to stay out of the way.
+
+**While nothing plays:**
+- After 10 minutes without playback, it releases its background connection, so Android can stop it completely. Pressing play in Poweramp wakes it automatically.
+- On Android 13+, it only receives ongoing notifications (like the media one), not every message or email.
+
+**While music plays:**
+- It wakes only when the next line is due, with no polling.
+- It reuses one connection to Discord, so there's no new encrypted handshake per line.
+- It doesn't write to storage per line.
+
+| Setting | Default | Effect |
+|---|---|---|
+| **Min. seconds between updates** | 0 (every line) | Each update is a network request that keeps the phone's radio awake. Set 5–10 s to skip fast lines and noticeably reduce drain while music plays. |
+
+> Sleeping only applies with **Only follow Poweramp** on, because other players can't wake the app.
 
 ## 🛠️ Building from source
 
