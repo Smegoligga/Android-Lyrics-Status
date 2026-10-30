@@ -6,6 +6,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -13,15 +14,19 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.Editable;
 import android.text.InputType;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
 import android.text.method.PasswordTransformationMethod;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,29 +34,16 @@ import com.lyricsstatus.poweramp.core.DiscordClient;
 import com.lyricsstatus.poweramp.core.Engine;
 import com.lyricsstatus.poweramp.core.Formatter;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-/**
- * Settings + live status. Every control is built by the current {@link Skin}, so each theme can use its own
- * layout (Discord settings panels, or CS 1.6 VGUI windows). Platform widgets only, no dependencies.
- */
+/** Settings + live status. Built in code with platform widgets so the app has no dependencies. */
 public final class MainActivity extends Activity {
 
-    private static final int REQ_SOUNDS = 7;
-    /** Lyrics delay slider range and the recommended value marked on it. */
-    private static final int MAX_DELAY = 15, RECOMMENDED_DELAY = 3;
-
     private App app;
-    private Skin skin;
-    private Sfx sfx;
-    private ScrollView scroll;
     private LinearLayout root;
-    private final List<View> anchors = new ArrayList<>();
     private TextView nowPlaying, lyricsInfo, currentLine, discordInfo, errorView;
-    private TextView notifState, fileState, batteryState, tokenState, soundState;
+    private TextView notifState, fileState, batteryState, tokenState;
     private final Runnable refresher = new Runnable() {
         @Override
         public void run() {
@@ -64,21 +56,15 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         app = App.get(this);
-        com.lyricsstatus.poweramp.core.Settings s = app.settings();
-        sfx = new Sfx(this);
-        skin = Skin.create(s.theme, this, sfx);
-        if (skin.hasSounds()) sfx.load(s.menuSounds, s.menuVolume);
-
-        scroll = new ScrollView(this);
+        ScrollView sv = new ScrollView(this);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        int p = skin.dp(16);
-        root.setPadding(p, p, p, skin.dp(32));
-        scroll.addView(root);
-        setContentView(scroll);
-        skin.applyWindow(scroll, root);
+        int p = dp(16);
+        root.setPadding(p, p, p, dp(32));
+        sv.addView(root);
+        setContentView(sv);
         if (Build.VERSION.SDK_INT >= 35) {
-            scroll.setOnApplyWindowInsetsListener((v, insets) -> {
+            sv.setOnApplyWindowInsetsListener((v, insets) -> {
                 android.graphics.Insets i = insets.getInsets(android.view.WindowInsets.Type.systemBars()
                         | android.view.WindowInsets.Type.displayCutout());
                 v.setPadding(i.left, i.top, i.right, i.bottom);
@@ -102,154 +88,124 @@ public final class MainActivity extends Activity {
         app.main.removeCallbacks(refresher);
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        sfx.release();
-    }
-
     // ------------------------------------------------------------------ layout
 
-    private static final String[] GROUPS = {"Now Playing", "Setup", "General", "Status Format", "Lyrics Sources",
-            "Timing", "Battery", "Options"};
-
-    private LinearLayout group(int i) {
-        int before = root.getChildCount();
-        String title = i == GROUPS.length - 1 && !skin.hasSounds() ? "Appearance" : GROUPS[i];
-        LinearLayout g = skin.group(root, title);
-        anchors.add(root.getChildAt(before));
-        return g;
-    }
-
     private void build() {
-        root.addView(skin.header("🎶 Android Lyrics Status",
-                "Your Discord status follows the lyrics of whatever you're playing. Works with any music app; "
-                        + "Poweramp is fully supported with extra features."));
+        TextView title = text("Android Lyrics Status", 22, true);
+        root.addView(title);
+        TextView sub = text("Your Discord status follows the lyrics of whatever you're playing. Works with any music app; Poweramp is fully supported with extra features.", 14, false);
+        sub.setAlpha(0.75f);
+        root.addView(sub);
 
-        // CS 1.6 main menu: jump to a window, or Quit
-        String[] items = new String[GROUPS.length + 1];
-        System.arraycopy(GROUPS, 0, items, 0, GROUPS.length);
-        items[GROUPS.length] = "Quit";
-        View menu = skin.menu(items, idx -> {
-            if (idx < 0) {
-                finishAndRemoveTask();
-                return;
-            }
-            skin.focusGroup(idx);
-            View target = anchors.get(idx);
-            scroll.post(() -> scroll.smoothScrollTo(0, target.getTop() - skin.dp(8)));
-        });
-        if (menu != null) root.addView(menu);
-
-        // ---- now playing
-        LinearLayout now = group(0);
-        LinearLayout live = skin.box();
-        nowPlaying = skin.text("", 16, true);
-        lyricsInfo = skin.hint("");
-        currentLine = skin.text("", 15, false);
-        currentLine.setTypeface(Typeface.create(currentLine.getTypeface(), Typeface.ITALIC));
-        currentLine.setTextColor(skin.highlight());
-        discordInfo = skin.hint("");
-        errorView = skin.text("", 13, true);
-        errorView.setTextColor(skin.errorColor());
+        // live card
+        LinearLayout live = card();
+        nowPlaying = text("", 16, true);
+        lyricsInfo = text("", 13, false);
+        currentLine = text("", 15, false);
+        currentLine.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.ITALIC));
+        discordInfo = text("", 13, false);
+        errorView = text("", 13, true);
+        errorView.setTextColor(0xFFE5484D);
         live.addView(nowPlaying);
         live.addView(lyricsInfo);
         live.addView(currentLine);
         live.addView(discordInfo);
         live.addView(errorView);
-        now.addView(live);
-        LinearLayout liveBtns = skin.row();
-        liveBtns.addView(skin.button("Find lyrics again", true, v -> {
+        LinearLayout liveBtns = row();
+        liveBtns.addView(button("Find lyrics again", v -> {
             app.engine().reload();
             toast("Looking up lyrics again");
         }));
-        liveBtns.addView(skin.button("Clear cache", false, v -> {
+        liveBtns.addView(button("Clear cache", v -> {
             int n = app.repository().cache().clear();
             app.engine().reload();
             toast("Removed " + n + " cached lyrics");
         }));
-        now.addView(liveBtns);
+        live.addView(liveBtns);
+        root.addView(live);
 
-        // ---- setup
-        LinearLayout setup = group(1);
+        // setup
+        section("Setup");
+        LinearLayout setup = card();
         com.lyricsstatus.poweramp.core.Settings s = app.settings();
-        tokenState = skin.label("Discord token");
+
+        tokenState = label("Discord token");
         setup.addView(tokenState);
-        EditText token = skin.edit();
+        EditText token = new EditText(this);
         token.setHint("Paste your Discord token");
         token.setSingleLine(true);
         token.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         token.setTransformationMethod(PasswordTransformationMethod.getInstance());
         token.setText(s.token);
         setup.addView(token);
-        LinearLayout tokenBtns = skin.row();
-        tokenBtns.addView(skin.button("Save", true, v -> {
+        LinearLayout tokenBtns = row();
+        tokenBtns.addView(button("Save", v -> {
             com.lyricsstatus.poweramp.core.Settings ns = app.settings();
             ns.token = token.getText().toString().trim().replaceAll("^\"|\"$", "");
             app.updateSettings(ns);
             refreshSetup();
             toast("Token saved");
         }));
-        tokenBtns.addView(skin.button("Test", false, v -> testToken(token.getText().toString())));
-        tokenBtns.addView(skin.button("Show", false, v -> {
+        tokenBtns.addView(button("Test", v -> testToken(token.getText().toString())));
+        tokenBtns.addView(button("Show", v -> {
             boolean hidden = token.getTransformationMethod() != null;
             token.setTransformationMethod(hidden ? null : PasswordTransformationMethod.getInstance());
             ((Button) v).setText(hidden ? "Hide" : "Show");
         }));
         setup.addView(tokenBtns);
-        setup.addView(skin.hint("Same token LyricsStatus used. Easiest to copy on a computer: open discord.com/app in a "
-                + "browser, F12 → Network, click any request to discord.com/api and copy the Authorization header. "
+        setup.addView(hint("Same token LyricsStatus used. Easiest to copy on a computer: open discord.com/app in a browser, "
+                + "F12 → Network, click any request to discord.com/api and copy the Authorization header. "
                 + "It gives full access to your account, so never share it."));
 
-        notifState = skin.label("");
+        notifState = label("");
         setup.addView(notifState);
-        setup.addView(skin.hint("Required. Lets the app see what your music app is playing, to the millisecond, and "
-                + "keeps it running in the background. Notifications themselves are ignored."));
-        setup.addView(skin.button("Open notification access", true, v -> openNotificationAccess()));
+        setup.addView(hint("Required. Lets the app see what your music app is playing, to the millisecond, and keeps it "
+                + "running in the background. Notifications themselves are ignored."));
+        setup.addView(button("Open notification access", v -> openNotificationAccess()));
 
-        fileState = skin.label("");
+        fileState = label("");
         setup.addView(fileState);
-        setup.addView(skin.hint("Needed for .lrc files next to your music and for lyrics embedded in tags (Poweramp, "
-                + "or other players when the song is in your music library). Without it only online lyrics "
-                + "(LRCLIB) are used."));
-        setup.addView(skin.button("Grant file access", true, v -> requestFileAccess()));
+        setup.addView(hint("Needed for .lrc files next to your music and for lyrics embedded in tags (Poweramp, or other players when the song is in your music library). "
+                + "Without it only online lyrics (LRCLIB) are used."));
+        setup.addView(button("Grant file access", v -> requestFileAccess()));
 
-        batteryState = skin.label("");
+        batteryState = label("");
         setup.addView(batteryState);
-        setup.addView(skin.hint("Recommended, so Android doesn't cut network access while the screen is off."));
-        setup.addView(skin.button("Allow background use", true, v -> requestBatteryExemption()));
+        setup.addView(hint("Recommended, so Android doesn't cut network access while the screen is off."));
+        setup.addView(button("Allow background use", v -> requestBatteryExemption()));
+        root.addView(setup);
 
-        // ---- general
-        LinearLayout gen = group(2);
+        // general
+        section("General");
+        LinearLayout gen = card();
         gen.addView(toggle("Enabled", "Update my Discord status", x -> x.enabled, (x, v) -> x.enabled = v));
-        gen.addView(toggle("Only follow Poweramp", "Off: follow whichever app is playing. On: Poweramp only, and the "
-                + "app can sleep completely while Poweramp is idle", x -> x.onlyPoweramp, (x, v) -> x.onlyPoweramp = v));
+        gen.addView(toggle("Only follow Poweramp", "Off: follow whichever app is playing. On: Poweramp only, and the app can sleep completely while Poweramp is idle",
+                x -> x.onlyPoweramp, (x, v) -> x.onlyPoweramp = v));
         gen.addView(toggle("Restore my status when idle", "Put back the status you had before, after pausing/stopping",
                 x -> x.restoreStatus, (x, v) -> x.restoreStatus = v));
         gen.addView(number("Seconds paused before restoring", x -> String.valueOf(x.pauseClearSeconds),
                 (x, v) -> x.pauseClearSeconds = (int) clamp(v, 0, 3600)));
+        root.addView(gen);
 
-        // ---- status format
-        LinearLayout disp = group(3);
+        // display
+        section("Status format");
+        LinearLayout disp = card();
         disp.addView(toggle("Show timestamp", "[1:23] before the line", x -> x.showTimestamp, (x, v) -> x.showTimestamp = v));
         disp.addView(toggle("Show \"Song lyrics - \" label", null, x -> x.showLabel, (x, v) -> x.showLabel = v));
         disp.addView(toggle("Custom format", "Use the template and emoji below instead", x -> x.advanced, (x, v) -> x.advanced = v));
         disp.addView(textField("Template", x -> x.customStatus, (x, v) -> x.customStatus = v));
         disp.addView(textField("Emoji (unicode, or <:name:id> with Nitro)", x -> x.customEmoji, (x, v) -> x.customEmoji = v));
-        disp.addView(skin.hint("Placeholders: {lyrics} {lyrics_upper} {lyrics_lower} {lyrics_letters_only} {timestamp} "
-                + "{duration} {song_name} {song_name_cropped} {song_name_upper} {song_name_lower} {song_author} "
-                + "{song_author_upper} {song_author_lower} {album}"));
+        disp.addView(hint("Placeholders: {lyrics} {lyrics_upper} {lyrics_lower} {lyrics_letters_only} {timestamp} {duration} "
+                + "{song_name} {song_name_cropped} {song_name_upper} {song_name_lower} {song_author} {song_author_upper} "
+                + "{song_author_lower} {album}"));
         disp.addView(textField("When a song has no synced lyrics (empty = restore/clear)", x -> x.noLyricsStatus,
                 (x, v) -> x.noLyricsStatus = v));
-        disp.addView(skin.hint("e.g. Listening to {song_name} by {song_author}"));
-        disp.addView(toggle("Censor swears and slurs", "Masks them in your status, like f***. Off: nothing is censored.",
-                x -> x.censor, (x, v) -> x.censor = v));
-        disp.addView(toggle("Custom word filter", "Also mask your own words below", x -> x.customFilterOn,
-                (x, v) -> x.customFilterOn = v));
-        disp.addView(textField("Words to filter (comma-separated)", x -> x.customFilter, (x, v) -> x.customFilter = v));
+        disp.addView(hint("e.g. Listening to {song_name} by {song_author}"));
+        root.addView(disp);
 
-        // ---- sources
-        LinearLayout src = group(4);
+        // sources
+        section("Lyrics sources");
+        LinearLayout src = card();
         src.addView(toggle(".lrc files", "Same name as the song, in its folder or a Lyrics/ subfolder",
                 x -> x.useLocalLrc, (x, v) -> x.useLocalLrc = v));
         src.addView(toggle("Embedded lyrics", "MP3 USLT/SYLT, FLAC/Ogg/Opus LYRICS, M4A ©lyr, APE",
@@ -260,131 +216,39 @@ public final class MainActivity extends Activity {
                 x -> x.onlineWhenLocalUnsynced, (x, v) -> x.onlineWhenLocalUnsynced = v));
         src.addView(toggle("Act as Poweramp lyrics plugin", "Also show LRCLIB lyrics inside Poweramp when it has none",
                 x -> x.providePowerampLyrics, (x, v) -> x.providePowerampLyrics = v));
+        root.addView(src);
 
-        // ---- timing
-        LinearLayout tim = group(5);
+        // timing
+        section("Timing");
+        LinearLayout tim = card();
         tim.addView(toggle("Auto offset", "Send lines early by Discord's measured delay + 100 ms",
                 x -> x.autoOffset, (x, v) -> x.autoOffset = v));
         tim.addView(number("Auto offset samples", x -> String.valueOf(x.autoOffsetSamples),
                 (x, v) -> x.autoOffsetSamples = (int) clamp(v, 1, 20)));
         tim.addView(number("Manual offset (ms, when auto is off)", x -> String.valueOf(x.sendTimeOffset),
                 (x, v) -> x.sendTimeOffset = clamp(v, -10000, 10000)));
-        // Lyrics delay: minimum gap between status updates, with the recommended value marked
-        tim.addView(skin.slider("Lyrics delay", s.minUpdateSeconds, MAX_DELAY, RECOMMENDED_DELAY,
-                "Recommended: " + RECOMMENDED_DELAY + " s (tap to use)", "s", v -> {
-                    com.lyricsstatus.poweramp.core.Settings ns = app.settings();
-                    ns.minUpdateSeconds = v;
-                    app.updateSettings(ns);
-                }, null));
-        tim.addView(skin.hint("Minimum time between status changes. Lines that come faster are skipped and the "
-                + "newest one is sent. 0 sends every line like the original, but fast songs can then get you "
-                + "rate limited by Discord (the app waits it out). The recommended " + RECOMMENDED_DELAY + " s keeps "
-                + "almost every line while avoiding bursts. Higher also saves battery."));
+        root.addView(tim);
 
-        // ---- battery
-        LinearLayout bat = group(6);
-        bat.addView(skin.hint("Each status update is a network request that keeps the radio awake, so a longer "
-                + "Lyrics delay (under Timing) uses less battery while music plays: 5–10 s noticeably reduces drain. "
-                + "With \"Only follow Poweramp\" on, the app goes fully to sleep after 10 minutes without playback "
-                + "and Poweramp wakes it when you press play."));
+        // battery
+        section("Battery");
+        LinearLayout bat = card();
+        bat.addView(number("Min. seconds between updates", x -> String.valueOf(x.minUpdateSeconds),
+                (x, v) -> x.minUpdateSeconds = (int) clamp(v, 0, 60)));
+        bat.addView(hint("0 = every lyric line, like the original. Each update is a network request that keeps "
+                + "the radio awake; 5–10 s skips fast lines and noticeably reduces drain while music plays. "
+                + "With \"Only follow Poweramp\" on, the app goes fully to sleep after 10 minutes without playback and Poweramp wakes it when you press play."));
+        root.addView(bat);
 
-        // ---- options / appearance
-        LinearLayout opt = group(7);
-        if (skin.hasSounds()) opt.addView(skin.label("Appearance"));
-        opt.addView(skin.themePicker(s.theme, id -> {
-            if (id.equals(s.theme)) return;
-            app.setTheme(id);
-            recreate();
-        }));
-        if (skin.hasSounds()) buildSounds(opt, s);
-        else opt.addView(skin.hint("Classic follows your phone's light/dark mode. CS 1.6 is the Counter-Strike 1.6 "
-                + "look from smegolas.com, with its menu sounds."));
-
-        // ---- footer
-        TextView foot = skin.hint("");
+        // footer
+        TextView foot = text("", 12, false);
+        foot.setAlpha(0.7f);
         foot.setText(android.text.Html.fromHtml("Based on <a href=\"https://github.com/OvalQuilter/lyrics-status\">LyricsStatus</a> "
                 + "by OvalQuilter. Lyrics from your files and <a href=\"https://lrclib.net\">LRCLIB</a>.<br><br>"
                 + "Changing your status with a user token is against Discord's Terms of Service, the same as with the "
                 + "original LyricsStatus. Use at your own risk.", android.text.Html.FROM_HTML_MODE_LEGACY));
         foot.setMovementMethod(LinkMovementMethod.getInstance());
-        foot.setLinkTextColor(skin.linkColor());
-        foot.setPadding(0, skin.dp(24), 0, 0);
+        foot.setPadding(0, dp(24), 0, 0);
         root.addView(foot);
-    }
-
-    /** Options > Audio on smegolas.com: menu sounds checkbox, volume slider (disabled while off). */
-    private void buildSounds(LinearLayout opt, com.lyricsstatus.poweramp.core.Settings s) {
-        opt.addView(skin.label("Audio"));
-        final View[] slider = new View[1];
-        opt.addView(skin.toggle("Menu sounds", "The game's menu sounds when you press buttons, in the CS 1.6 theme only. "
-                + "Off by default.", s.menuSounds, on -> {
-            int vol = app.settings().menuVolume;
-            app.setMenuSounds(on, vol);
-            sfx.load(on, vol);
-            setEnabledDeep(slider[0], on);
-        }));
-        slider[0] = skin.slider("Volume", s.menuVolume, 100, -1, null, "", vol -> {
-            app.setMenuSounds(app.settings().menuSounds, vol);
-            sfx.setVolume(vol);
-        }, sfx::playRelease);
-        setEnabledDeep(slider[0], s.menuSounds);
-        opt.addView(slider[0]);
-        soundState = skin.hint("");
-        opt.addView(soundState);
-        opt.addView(skin.button("Import sound files…", false, v -> pickSounds()));
-        opt.addView(skin.hint("Pick buttonrollover.wav, buttonclick.wav and buttonclickrelease.wav, from smegolas.com "
-                + "or your Half-Life folder (steamapps/common/Half-Life/valve/sound/UI). They're Valve's files, so "
-                + "they're copied into the app rather than shipped with it."));
-        refreshSoundState();
-    }
-
-    private void refreshSoundState() {
-        if (soundState == null) return;
-        int n = sfx.available();
-        soundState.setText(n == 0 ? "No sound files added for this theme yet."
-                : n + " of 3 sound files added" + (n < 3 ? " (missing ones are skipped)." : "."));
-    }
-
-    private void pickSounds() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType("*/*");
-        i.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"audio/*", "application/octet-stream"});
-        i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-        try {
-            startActivityForResult(i, REQ_SOUNDS);
-        } catch (Exception e) {
-            toast("No file picker available");
-        }
-    }
-
-    @Override
-    @SuppressWarnings("deprecation")
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQ_SOUNDS || resultCode != RESULT_OK || data == null) return;
-        List<Uri> uris = new ArrayList<>();
-        if (data.getClipData() != null) {
-            for (int k = 0; k < data.getClipData().getItemCount(); k++) uris.add(data.getClipData().getItemAt(k).getUri());
-        } else if (data.getData() != null) {
-            uris.add(data.getData());
-        }
-        int n = sfx.importFrom(this, uris);
-        com.lyricsstatus.poweramp.core.Settings s = app.settings();
-        sfx.load(s.menuSounds, s.menuVolume);
-        refreshSoundState();
-        toast(n == 0 ? "None of those were buttonrollover/buttonclick/buttonclickrelease.wav"
-                : "Added " + n + " sound file" + (n == 1 ? "" : "s"));
-    }
-
-    private static void setEnabledDeep(View v, boolean on) {
-        if (v == null) return;
-        v.setEnabled(on);
-        v.setAlpha(on ? 1f : 0.55f);
-        if (v instanceof android.view.ViewGroup) {
-            android.view.ViewGroup g = (android.view.ViewGroup) v;
-            for (int i = 0; i < g.getChildCount(); i++) g.getChildAt(i).setEnabled(on);
-        }
     }
 
     // ------------------------------------------------------------------ live state
@@ -493,25 +357,45 @@ public final class MainActivity extends Activity {
         }
     }
 
-    // ------------------------------------------------------------------ settings rows
+    // ------------------------------------------------------------------ widgets
 
     private interface Setter<T> extends BiConsumer<com.lyricsstatus.poweramp.core.Settings, T> {}
 
     private View toggle(String title, String desc, Function<com.lyricsstatus.poweramp.core.Settings, Boolean> get,
                         Setter<Boolean> set) {
-        return skin.toggle(title, desc, get.apply(app.settings()), v -> {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        l.setPadding(0, dp(8), 0, dp(8));
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.addView(text(title, 15, false));
+        if (desc != null) {
+            TextView d = text(desc, 12, false);
+            d.setAlpha(0.65f);
+            texts.addView(d);
+        }
+        l.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        Switch sw = new Switch(this);
+        sw.setChecked(get.apply(app.settings()));
+        sw.setOnCheckedChangeListener((b, v) -> {
             com.lyricsstatus.poweramp.core.Settings s = app.settings();
             set.accept(s, v);
             app.updateSettings(s);
         });
+        l.addView(sw);
+        l.setOnClickListener(v -> sw.toggle());
+        return l;
     }
 
     private View textField(String title, Function<com.lyricsstatus.poweramp.core.Settings, String> get, Setter<String> set) {
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(0, skin.dp(8), 0, 0);
-        l.addView(skin.fieldLabel(title));
-        EditText e = skin.edit();
+        l.setPadding(0, dp(8), 0, 0);
+        TextView t = text(title, 13, false);
+        t.setAlpha(0.8f);
+        l.addView(t);
+        EditText e = new EditText(this);
         e.setSingleLine(true);
         e.setText(get.apply(app.settings()));
         e.addTextChangedListener(debounced(v -> {
@@ -527,11 +411,12 @@ public final class MainActivity extends Activity {
         LinearLayout l = new LinearLayout(this);
         l.setOrientation(LinearLayout.HORIZONTAL);
         l.setGravity(Gravity.CENTER_VERTICAL);
-        l.setPadding(0, skin.dp(4), 0, skin.dp(4));
-        l.addView(skin.text(title, 14, false), new LinearLayout.LayoutParams(0, -2, 1f));
-        EditText e = skin.edit();
+        TextView t = text(title, 15, false);
+        l.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        EditText e = new EditText(this);
         e.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
         e.setText(get.apply(app.settings()));
+        e.setMinWidth(dp(80));
         e.setGravity(Gravity.END);
         e.addTextChangedListener(debounced(v -> {
             try {
@@ -542,9 +427,7 @@ public final class MainActivity extends Activity {
             } catch (NumberFormatException ignored) {
             }
         }));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(skin.dp(90), -2);
-        lp.leftMargin = skin.dp(8);
-        l.addView(e, lp);
+        l.addView(e);
         return l;
     }
 
@@ -568,8 +451,77 @@ public final class MainActivity extends Activity {
         };
     }
 
+    private void section(String title) {
+        TextView t = text(title.toUpperCase(), 12, true);
+        t.setAlpha(0.7f);
+        t.setLetterSpacing(0.08f);
+        t.setPadding(dp(4), dp(20), 0, dp(6));
+        root.addView(t);
+    }
+
+    private LinearLayout card() {
+        LinearLayout c = new LinearLayout(this);
+        c.setOrientation(LinearLayout.VERTICAL);
+        int p = dp(14);
+        c.setPadding(p, p, p, p);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0x14808080);
+        bg.setCornerRadius(dp(14));
+        c.setBackground(bg);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = dp(10);
+        c.setLayoutParams(lp);
+        return c;
+    }
+
+    private LinearLayout row() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setPadding(0, dp(4), 0, dp(4));
+        return l;
+    }
+
+    private Button button(String label, View.OnClickListener click) {
+        Button b = new Button(this);
+        b.setText(label);
+        b.setAllCaps(false);
+        b.setOnClickListener(click);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.rightMargin = dp(8);
+        b.setLayoutParams(lp);
+        return b;
+    }
+
+    private TextView label(String s) {
+        TextView t = text(s, 15, true);
+        t.setPadding(0, dp(12), 0, dp(2));
+        return t;
+    }
+
+    private TextView hint(String s) {
+        TextView t = text(s, 12, false);
+        t.setAlpha(0.65f);
+        return t;
+    }
+
+    private TextView text(String s, float sp, boolean bold) {
+        TextView t = new TextView(this);
+        t.setText(s);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setEllipsize(TextUtils.TruncateAt.END);
+        t.setPadding(0, dp(2), 0, dp(2));
+        return t;
+    }
+
     private static long clamp(long v, long lo, long hi) {
         return Math.max(lo, Math.min(hi, v));
+    }
+
+    private int dp(int v) {
+        return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
     private void toast(String s) {
