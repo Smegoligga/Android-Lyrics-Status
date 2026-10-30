@@ -67,7 +67,10 @@ public final class MainActivity extends Activity {
         com.lyricsstatus.poweramp.core.Settings s = app.settings();
         sfx = new Sfx(this);
         skin = Skin.create(s.theme, this, sfx);
-        if (skin.hasSounds()) sfx.load(s.menuSounds, s.menuVolume);
+        if (skin.hasSounds()) {
+            sfx.setOnStateChange(this::refreshSoundState);
+            sfx.load(s.menuSounds, s.menuVolume);
+        }
 
         scroll = new ScrollView(this);
         root = new LinearLayout(this);
@@ -324,6 +327,7 @@ public final class MainActivity extends Activity {
             app.setMenuSounds(on, vol);
             sfx.load(on, vol);
             setEnabledDeep(slider[0], on);
+            refreshSoundState();
         }));
         slider[0] = skin.slider("Volume", s.menuVolume, 100, -1, null, "", vol -> {
             app.setMenuSounds(app.settings().menuSounds, vol);
@@ -344,7 +348,8 @@ public final class MainActivity extends Activity {
         if (soundState == null) return;
         int n = sfx.available();
         soundState.setText(n == 0 ? "No sound files added for this theme yet."
-                : n + " of 3 sound files added" + (n < 3 ? " (missing ones are skipped)." : "."));
+                : sfx.describe() + (sfx.enabled() ? "" : "\nTick Menu sounds to hear them.")
+                + "\nPlays at your media volume.");
     }
 
     private void pickSounds() {
@@ -372,11 +377,17 @@ public final class MainActivity extends Activity {
             uris.add(data.getData());
         }
         int n = sfx.importFrom(this, uris);
+        if (n == 0) {
+            toast("None of those were buttonrollover/buttonclick/buttonclickrelease.wav");
+            refreshSoundState();
+            return;
+        }
+        // Importing means you want to hear them: switch menu sounds on, then rebuild the screen so the
+        // checkbox and slider show it
         com.lyricsstatus.poweramp.core.Settings s = app.settings();
-        sfx.load(s.menuSounds, s.menuVolume);
-        refreshSoundState();
-        toast(n == 0 ? "None of those were buttonrollover/buttonclick/buttonclickrelease.wav"
-                : "Added " + n + " sound file" + (n == 1 ? "" : "s"));
+        app.setMenuSounds(true, s.menuVolume);
+        toast("Added " + n + " sound file" + (n == 1 ? "" : "s") + ", menu sounds on");
+        recreate();
     }
 
     private static void setEnabledDeep(View v, boolean on) {

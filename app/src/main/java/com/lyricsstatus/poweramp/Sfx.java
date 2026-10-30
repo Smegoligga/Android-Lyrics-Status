@@ -34,6 +34,9 @@ public final class Sfx {
     private final File dir;
     private SoundPool pool;
     private final int[] ids = {0, 0, 0};
+    /** Per file: 0 = not loaded, 1 = ready, -1 = Android couldn't decode it. */
+    private final int[] state = {0, 0, 0};
+    private Runnable onStateChange;
     private boolean enabled;
     private float gain;
     private long lastRoll;
@@ -50,12 +53,22 @@ public final class Sfx {
         this.enabled = enabled;
         setVolume(volume);
         if (!enabled) return;
+        // USAGE_GAME plays on the media volume, like the site's Web Audio. (Sonification used the system/touch
+        // volume, which many phones keep at 0 or mute in Do Not Disturb, so nothing was heard.)
         pool = new SoundPool.Builder().setMaxStreams(4).setAudioAttributes(new AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                .setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build();
+        pool.setOnLoadCompleteListener((p, sampleId, status) -> {
+            for (int i = 0; i < ids.length; i++) {
+                if (ids[i] == sampleId) state[i] = status == 0 ? 1 : -1;
+            }
+            if (onStateChange != null) onStateChange.run();
+        });
         for (int i = 0; i < FILES.length; i++) {
             File f = new File(dir, FILES[i]);
             ids[i] = f.isFile() ? pool.load(f.getPath(), 1) : 0;
+            state[i] = 0;
+            if (ids[i] == 0 && f.isFile()) state[i] = -1;
         }
     }
 
@@ -67,6 +80,7 @@ public final class Sfx {
         if (pool != null) pool.release();
         pool = null;
         ids[0] = ids[1] = ids[2] = 0;
+        state[0] = state[1] = state[2] = 0;
     }
 
     /** How many of the three files are present. */
@@ -78,6 +92,28 @@ public final class Sfx {
 
     public boolean has(int i) {
         return new File(dir, FILES[i]).isFile();
+    }
+
+    /** Called (on the main thread) when a file finishes loading or fails to decode. */
+    public void setOnStateChange(Runnable r) {
+        onStateChange = r;
+    }
+
+    public boolean enabled() {
+        return enabled;
+    }
+
+    /** Status per file for the Options window, e.g. "buttonclick.wav: ready". */
+    public String describe() {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < FILES.length; i++) {
+            String st;
+            if (!has(i)) st = "not added";
+            else if (!enabled) st = "added";
+            else st = state[i] == 1 ? "ready" : state[i] == -1 ? "can't be played (not a valid WAV?)" : "loading…";
+            sb.append(i == 0 ? "" : "\n").append(FILES[i]).append(": ").append(st);
+        }
+        return sb.toString();
     }
 
     private void play(int i) {
