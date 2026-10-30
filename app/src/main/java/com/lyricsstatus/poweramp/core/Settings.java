@@ -47,6 +47,8 @@ public final class Settings {
     public boolean mergeLines = true;
     /** While music plays: 0 = off, 1 = keep the CPU awake silently, 2 = also a foreground notification. */
     public int keepAliveMode = 1;
+    /** Manual search: leave out feat./prod./remaster tags from names. */
+    public boolean searchIgnoreExtras = true;
     /** App colour theme id (see Theme in the Android layer). */
     public String theme = "classic";
     /** CS 1.6 theme menu sounds (off by default, like smegolas.com) and their volume 0-100. */
@@ -83,6 +85,7 @@ public final class Settings {
         s.minUpdateSeconds = minUpdateSeconds;
         s.mergeLines = mergeLines;
         s.keepAliveMode = keepAliveMode;
+        s.searchIgnoreExtras = searchIgnoreExtras;
         s.theme = theme;
         s.menuSounds = menuSounds;
         s.censor = censor;

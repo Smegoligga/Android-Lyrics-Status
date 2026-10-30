@@ -41,6 +41,7 @@ public final class Prefs implements StatusSender.Store {
         s.minUpdateSeconds = sp.getInt("minUpdateSeconds", d.minUpdateSeconds);
         s.mergeLines = sp.getBoolean("mergeLines", d.mergeLines);
         s.keepAliveMode = sp.getInt("keepAliveMode", d.keepAliveMode);
+        s.searchIgnoreExtras = sp.getBoolean("searchIgnoreExtras", d.searchIgnoreExtras);
         s.theme = sp.getString("theme", d.theme);
         s.menuSounds = sp.getBoolean("menuSounds", d.menuSounds);
         s.censor = sp.getBoolean("censor", d.censor);
@@ -75,6 +76,7 @@ public final class Prefs implements StatusSender.Store {
                 .putInt("minUpdateSeconds", s.minUpdateSeconds)
                 .putBoolean("mergeLines", s.mergeLines)
                 .putInt("keepAliveMode", s.keepAliveMode)
+                .putBoolean("searchIgnoreExtras", s.searchIgnoreExtras)
                 .putString("theme", s.theme)
                 .putBoolean("menuSounds", s.menuSounds)
                 .putBoolean("censor", s.censor)

@@ -163,7 +163,11 @@ public final class MainActivity extends Activity {
         live.addView(errorView);
         now.addView(live);
         LinearLayout liveBtns = skin.row();
-        liveBtns.addView(skin.button("Find lyrics again", true, v -> {
+        LinearLayout searchRow = skin.row();
+        searchRow.addView(skin.button("Search lyrics", true, v ->
+                startActivity(new Intent(this, SearchActivity.class))));
+        now.addView(searchRow);
+        liveBtns.addView(skin.button("Find again", false, v -> {
             app.engine().reload();
             toast("Looking up lyrics again");
         }));

@@ -71,7 +71,8 @@ public final class App extends Application {
         instance = this;
         prefs = new Prefs(this);
         settings = prefs.load();
-        repository = new LyricsRepository(new LyricsCache(new File(getFilesDir(), "lyrics-cache")));
+        repository = new LyricsRepository(new LyricsCache(new File(getFilesDir(), "lyrics-cache")),
+                new com.lyricsstatus.poweramp.core.Overrides(new File(getFilesDir(), "overrides.json")));
 
         sender = new StatusSender(prefs, new StatusSender.Listener() {
             @Override

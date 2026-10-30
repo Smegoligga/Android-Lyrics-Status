@@ -22,14 +22,34 @@ public final class LyricsRepository {
     }
 
     private final LyricsCache cache;
+    private final Overrides overrides;
     private final LrcLibClient lrclib = new LrcLibClient();
 
     public LyricsRepository(LyricsCache cache) {
+        this(cache, null);
+    }
+
+    public LyricsRepository(LyricsCache cache, Overrides overrides) {
         this.cache = cache;
+        this.overrides = overrides;
+    }
+
+    public Overrides overrides() {
+        return overrides;
     }
 
     /** Blocking; call off the main thread. {@code audio} may be null when the file isn't accessible. */
     public Result find(Track t, File audio, Settings s) {
+        // Picked by hand: a pinned song wins over everything, then an album mapping
+        if (overrides != null) {
+            Lyrics pinned = overrides.song(t);
+            if (pinned != null && !pinned.isEmpty()) return new Result(pinned, pinned.source);
+            Overrides.AlbumMap m = overrides.album(t);
+            if (m != null) {
+                Lyrics l = fromMappedAlbum(t, m);
+                if (l != null) return new Result(l, l.source);
+            }
+        }
         Lyrics plainLocal = null;
         String fileNote = audio == null ? "file not accessible" : null;
 
@@ -65,6 +85,25 @@ public final class LyricsRepository {
             }
         }
         return new Result(null, noneMessage(plainLocal, fileNote));
+    }
+
+    /** Lyrics for this song from the album the user mapped its album to (cached per mapping). */
+    private Lyrics fromMappedAlbum(Track t, Overrides.AlbumMap m) {
+        String key = t.key() + "\u0000album:" + LyricsSearch.key(m.artist) + "\u0000" + LyricsSearch.key(m.album);
+        LyricsCache.Entry e = cache.get(key);
+        if (e != null) return e.lyrics;
+        try {
+            LyricsSearch.Record r = LyricsSearch.findInAlbum(t.title, t.durationMs, m.artist, m.album);
+            if (r == null) {
+                cache.putMiss(key, false);
+                return null;
+            }
+            Lyrics l = r.lyrics("From album: " + m.album);
+            cache.put(key, t, l);
+            return l;
+        } catch (Exception ex) {
+            return null; // offline: fall back to the normal sources this time
+        }
     }
 
     private static String noneMessage(Lyrics plainLocal, String fileNote) {

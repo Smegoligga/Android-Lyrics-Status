@@ -35,7 +35,12 @@ public final class LyricsCache {
     }
 
     public synchronized Entry get(Track t) {
-        File f = file(t);
+        return get(t.key());
+    }
+
+    /** Lookup by an explicit key (used for album-mapped lyrics). */
+    public synchronized Entry get(String key) {
+        File f = file(key);
         if (!f.isFile()) return null;
         try {
             JSONObject o = new JSONObject(new String(Files.readAllBytes(f.toPath()), StandardCharsets.UTF_8));
@@ -51,24 +56,32 @@ public final class LyricsCache {
     }
 
     public synchronized void put(Track t, Lyrics l) {
+        put(t.key(), t, l);
+    }
+
+    public synchronized void put(String key, Track t, Lyrics l) {
         try {
             JSONObject o = new JSONObject();
             o.put("lrc", l.raw);
             o.put("source", l.source);
             o.put("title", t.title);
             o.put("artist", t.artist);
-            Files.write(file(t).toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file(key).toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) {
         }
     }
 
     public synchronized void putMiss(Track t, boolean instrumental) {
+        putMiss(t.key(), instrumental);
+    }
+
+    public synchronized void putMiss(String key, boolean instrumental) {
         try {
             JSONObject o = new JSONObject();
             o.put("miss", true);
             o.put("instrumental", instrumental);
             o.put("at", System.currentTimeMillis());
-            Files.write(file(t).toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
+            Files.write(file(key).toPath(), o.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) {
         }
     }
@@ -86,7 +99,11 @@ public final class LyricsCache {
     }
 
     private File file(Track t) {
-        return new File(dir, sha1(t.key()) + ".json");
+        return file(t.key());
+    }
+
+    private File file(String key) {
+        return new File(dir, sha1(key) + ".json");
     }
 
     private static String sha1(String s) {

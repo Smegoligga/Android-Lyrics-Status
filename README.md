@@ -9,7 +9,7 @@ An Android port of [LyricsStatus](https://github.com/OvalQuilter/lyrics-status) 
 
 ## Features
 
-- Lyrics from `.lrc` files, tags embedded in your music, or [LRCLIB](https://lrclib.net)
+- Lyrics from `.lrc` files, tags embedded in your music, or [LRCLIB](https://lrclib.net), plus manual search
 - Millisecond-accurate timing
 - Same status format and placeholders as the original
 - Restores your normal status when you pause
@@ -36,6 +36,7 @@ To get your token: open discord.com/app in a browser on a computer, press F12, g
 
 | Setting | What it does |
 |---|---|
+| Search lyrics | Find lyrics by song, artist or album. Use a result for the current song, or an album for your whole album |
 | Status format | Timestamp, label, or your own template with placeholders like `{lyrics}`, `{song_name}`, `{song_author}` |
 | Lyrics delay | Minimum time between status changes. 3 s is recommended to avoid Discord rate limits |
 | Merge skipped lines | Shows lines skipped by the delay together instead of dropping them |

@@ -50,6 +50,11 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".SearchActivity"
+            android:exported="false"
+            android:label="Search lyrics" />
+
         <!-- Media session access (ms-accurate position) + keeps the process alive in the background -->
         <service
             android:name=".MediaListenerService"
