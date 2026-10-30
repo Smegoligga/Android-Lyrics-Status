@@ -55,7 +55,7 @@ jobs:
         id: version
         run: echo "name=$(grep -oP "versionName '\\K[^']+" app/build.gradle)" >> "$GITHUB_OUTPUT"
 
-      # Every push to main (or a v* tag) publishes the APK as a GitHub Release.
+      # Every push to main (or a v* tag) publishes the APK as a GitHub pre-release named after versionName.
       # The tag is created by GitHub, so nothing has to be tagged by hand.
       - name: Publish GitHub release
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -64,7 +64,8 @@ jobs:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.name) }}
           name: LyricsStatus for Poweramp ${{ steps.version.outputs.name }}
           target_commitish: ${{ github.sha }}
-          make_latest: true
+          prerelease: true
+          make_latest: false
           body: |
             Download the APK below and install it on your phone. Setup steps are in the README.
           files: app/build/outputs/apk/release/*.apk
