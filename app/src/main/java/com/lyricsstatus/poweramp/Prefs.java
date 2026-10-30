@@ -40,6 +40,11 @@ public final class Prefs implements StatusSender.Store {
         s.statusExpirySeconds = sp.getInt("statusExpirySeconds", d.statusExpirySeconds);
         s.minUpdateSeconds = sp.getInt("minUpdateSeconds", d.minUpdateSeconds);
         s.theme = sp.getString("theme", d.theme);
+        s.menuSounds = sp.getBoolean("menuSounds", d.menuSounds);
+        s.censor = sp.getBoolean("censor", d.censor);
+        s.customFilterOn = sp.getBoolean("customFilterOn", d.customFilterOn);
+        s.customFilter = sp.getString("customFilter", d.customFilter);
+        s.menuVolume = sp.getInt("menuVolume", d.menuVolume);
         return s;
     }
 
@@ -67,6 +72,11 @@ public final class Prefs implements StatusSender.Store {
                 .putInt("statusExpirySeconds", s.statusExpirySeconds)
                 .putInt("minUpdateSeconds", s.minUpdateSeconds)
                 .putString("theme", s.theme)
+                .putBoolean("menuSounds", s.menuSounds)
+                .putBoolean("censor", s.censor)
+                .putBoolean("customFilterOn", s.customFilterOn)
+                .putString("customFilter", s.customFilter)
+                .putInt("menuVolume", s.menuVolume)
                 .apply();
     }
 

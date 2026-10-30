@@ -167,6 +167,13 @@ public final class App extends Application {
         prefs.save(settings);
     }
 
+    /** Menu sound settings are UI-only too. */
+    public void setMenuSounds(boolean on, int volume) {
+        settings.menuSounds = on;
+        settings.menuVolume = volume;
+        prefs.save(settings);
+    }
+
     // ------------------------------------------------------------------ battery: sleep while idle
 
     /**

@@ -223,7 +223,7 @@ public final class Engine {
                 goIdle();
                 return;
             }
-            String text = Formatter.template(tpl, null, track);
+            String text = Formatter.clip(WordFilter.apply(Formatter.template(tpl, null, track), settings));
             if (!text.equals(currentText) || now >= refreshDue) send(text, true);
             schedule(Math.max(1000, (lastSendAt + Math.max(10_000, expiryMs - 15_000)) - now));
             return;
@@ -270,6 +270,7 @@ public final class Engine {
     private boolean currentTextIsTemplate;
 
     private void send(String text, boolean noLyricsTemplate) {
+        text = Formatter.clip(WordFilter.apply(text, settings));
         currentText = text;
         currentTextIsTemplate = noLyricsTemplate;
         lastSendAt = sched.now();

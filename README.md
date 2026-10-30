@@ -102,6 +102,8 @@ The default looks exactly like OvalQuilter's: `🎶 [1:23] Song lyrics - line`.
 | **Show "Song lyrics - " label** | Adds the label before the line. |
 | **Custom format** | Uses your own **Template** and **Emoji** instead of the default. |
 | **When a song has no synced lyrics** | What to show for songs without lyrics. For example `Listening to {song_name} by {song_author}`. Leave it empty to restore your normal status. |
+| **Censor swears and slurs** | Masks them in your status, like `f***` or `bulls***`. Words such as *class* or *Scunthorpe* are left alone. **Off: nothing is censored.** |
+| **Custom word filter** | Also masks your own comma-separated words, as whole words in any case. It has its own toggle; with both off, nothing is touched. |
 
 **Template placeholders**
 
@@ -163,12 +165,33 @@ The app is built to stay out of the way.
 
 ### 6. Theme
 
-At the bottom of the app, pick a theme:
+Pick a theme under **Appearance** (in CS 1.6: **Options**). Each theme changes the whole layout, not just the colours.
 
-| Theme | Look |
-|---|---|
-| **Classic** | ![#5865F2](https://placehold.co/14x14/5865F2/5865F2.png) Discord blurple accents. Follows your phone's light/dark mode. |
-| **CS 1.6** | ![#4C5844](https://placehold.co/14x14/4C5844/4C5844.png) ![#C4B550](https://placehold.co/14x14/C4B550/C4B550.png) The Counter-Strike 1.6 / classic Steam VGUI look: olive-green panels, mustard-yellow headings, square corners and bevelled 3D buttons and boxes. |
+**Classic (Discord)** is the default and is built like Discord's own settings screens:
+- Discord's dark or light palette, following your phone.
+- Grey uppercase section labels over rounded panels.
+- Blurple buttons with grey secondary buttons.
+- Green toggles with a ✓/✕ knob.
+- Dark borderless text boxes.
+
+**CS 1.6** is the Counter-Strike 1.6 / Half-Life VGUI look from [smegolas.com](https://smegolas.com), using the same colours and components:
+- An olive gradient background.
+- A main-menu text list at the top that jumps to each window, ending in **Quit**.
+- Every section is a bevelled window with a title bar. The `x` box rolls the window up.
+- Sunken boxes with yellow headings, and raised VGUI buttons that sink when pressed.
+- Checkboxes and radio buttons instead of switches.
+- Text boxes with a sunken border that turns yellow when focused.
+
+**Menu sounds (CS 1.6 only).** Like on the site, these are off by default and play:
+- `buttonclick.wav` when you press a button,
+- `buttonclickrelease.wav` when you release it,
+- `buttonrollover.wav` on hover (stylus or mouse).
+
+To set them up:
+1. Go to *Options → Audio* and tap **Import sound files…**.
+2. Pick the three `.wav` files, from smegolas.com or from your Half-Life folder (`steamapps/common/Half-Life/valve/sound/UI`).
+
+They're Valve's files, so they're copied into the app rather than shipped with it. The volume slider plays a test click when you let go.
 
 ## 🛠️ Building from source
 
