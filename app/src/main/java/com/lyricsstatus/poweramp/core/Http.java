@@ -95,6 +95,33 @@ public final class Http {
         }
     }
 
+    /**
+     * GET with retries for a busy server: up to 3 tries (waiting 0.8 s, then 2 s) on HTTP 5xx, 429 or a
+     * network error. Returns the last response; throws only if every try failed at the network level.
+     */
+    public static Response getRetry(String url, Map<String, String> headers, int timeoutMs) throws IOException {
+        long[] waits = {0, 800, 2000};
+        Response last = null;
+        IOException lastErr = null;
+        for (long w : waits) {
+            if (w > 0) {
+                try {
+                    Thread.sleep(w);
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+            try {
+                last = request("GET", url, headers, null, timeoutMs);
+                if (last.code < 500 && last.code != 429) return last;
+            } catch (IOException e) {
+                lastErr = e;
+            }
+        }
+        if (last != null) return last;
+        throw lastErr != null ? lastErr : new IOException("no response");
+    }
+
     public static String enc(String s) {
         try {
             return java.net.URLEncoder.encode(s, "UTF-8").replace("+", "%20");

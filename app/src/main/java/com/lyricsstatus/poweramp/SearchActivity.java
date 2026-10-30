@@ -29,7 +29,10 @@ public final class SearchActivity extends Activity {
     private Track track;
     private LinearLayout results;
     private TextView status;
-    private EditText song, artist, album;
+    private EditText query, song, artist, album;
+    private LinearLayout advanced;
+    private boolean advancedOn;
+    private String prefilled = "";
     private int searchGen;
 
     @Override
@@ -64,16 +67,39 @@ public final class SearchActivity extends Activity {
                 + (track.album.isEmpty() ? "" : " (" + track.album + ")")));
 
         LinearLayout g = skin.group(root, "Search");
-        song = field(g, "Song", track != null ? track.title : "");
-        artist = field(g, "Artist", track != null ? track.artist : "");
-        album = field(g, "Album", track != null ? track.album : "");
+        // Simple search: one box, pre-filled with "song artist"
+        if (track != null) {
+            java.util.List<String> who = LyricsSearch.credits(track.artist, track.title);
+            prefilled = (LyricsSearch.cleanTitle(track.title) + " " + (who.isEmpty() ? track.artist : who.get(0))).trim();
+        }
+        query = field(g, "Search", prefilled);
+        query.setHint("Song and artist");
+        query.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH);
+        query.setOnEditorActionListener((v, id, e) -> {
+            search();
+            return true;
+        });
+        // Advanced search: separate fields
+        g.addView(skin.toggle("Advanced search", "Search by song, artist and album separately", false, on -> {
+            advancedOn = on;
+            advanced.setVisibility(on ? View.VISIBLE : View.GONE);
+            query.setEnabled(!on);
+            query.setAlpha(on ? 0.5f : 1f);
+        }));
+        advanced = new LinearLayout(this);
+        advanced.setOrientation(LinearLayout.VERTICAL);
+        advanced.setVisibility(View.GONE);
+        song = field(advanced, "Song", track != null ? track.title : "");
+        artist = field(advanced, "Artist", track != null ? track.artist : "");
+        album = field(advanced, "Album", track != null ? track.album : "");
+        advanced.addView(skin.hint("Leave Song empty to list the songs on an album."));
+        g.addView(advanced);
         g.addView(skin.toggle("Ignore feat., prod., remaster etc.", "Searches without featured artists, producers "
                 + "and version tags in the names", s.searchIgnoreExtras, v -> {
             com.lyricsstatus.poweramp.core.Settings ns = app.settings();
             ns.searchIgnoreExtras = v;
             app.updateSettings(ns);
         }));
-        g.addView(skin.hint("Leave Song empty to list the songs on an album."));
         LinearLayout btns = skin.row();
         btns.addView(skin.button("Search", true, v -> search()));
         btns.addView(skin.button("Back", false, v -> finish()));
@@ -126,21 +152,36 @@ public final class SearchActivity extends Activity {
     }
 
     private void search() {
+        final boolean adv = advancedOn;
+        final String q = query.getText().toString();
         final String s = song.getText().toString(), a = artist.getText().toString(), al = album.getText().toString();
-        if (s.trim().isEmpty() && a.trim().isEmpty() && al.trim().isEmpty()) {
-            status.setText("Type a song, artist or album first.");
+        if (adv ? (s.trim().isEmpty() && a.trim().isEmpty() && al.trim().isEmpty()) : q.trim().isEmpty()) {
+            status.setText(adv ? "Type a song, artist or album first." : "Type a song and artist first.");
             return;
         }
         final boolean ignore = app.settings().searchIgnoreExtras;
+        final Track playing = track;
+        final boolean usingPrefill = !adv && playing != null && q.trim().equals(prefilled);
         final int gen = ++searchGen;
         status.setText("Searching…");
         app.io.execute(() -> {
             List<LyricsSearch.Record> list = null;
             String err = null;
             try {
-                list = LyricsSearch.search(s, a, al, ignore);
+                if (adv) {
+                    list = LyricsSearch.search(s, a, al, ignore);
+                } else {
+                    list = LyricsSearch.searchSimple(q, ignore);
+                    // nothing for the pre-filled text: try the playing song's tags with all the fallbacks
+                    if (list.isEmpty() && usingPrefill) {
+                        list = LyricsSearch.search(playing.title, playing.artist, playing.album, true);
+                    }
+                }
+            } catch (LyricsSearch.ServiceDown e) {
+                err = e.getMessage();
             } catch (Exception e) {
-                err = "Search failed: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+                err = "Search failed: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())
+                        + ". Check your connection and try again.";
             }
             final List<LyricsSearch.Record> fl = list;
             final String fe = err;

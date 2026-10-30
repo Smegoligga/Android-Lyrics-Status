@@ -1,23 +1,22 @@
 package com.lyricsstatus.poweramp.core;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * LRCLIB (https://lrclib.net) client. Based on LrcLibSource.ts from OvalQuilter's LyricsStatus,
- * extended with duration matching and a search fallback for local files whose tags don't match exactly.
+ * Automatic LRCLIB (https://lrclib.net) lookup. Based on LrcLibSource.ts from OvalQuilter's LyricsStatus,
+ * extended to try several variations before giving up:
+ *  1. exact lookup with the tags as they are (and with a cleaned title + main artist)
+ *  2. searches: tags as-is, without the album, cleaned title + main artist, + each other credited artist,
+ *     title alone, then free text (see {@link LyricsSearch#attempts})
+ * Loose attempts (title alone / free text) are only accepted when the artist or the song length matches.
+ * Busy-server errors are retried and then reported, never cached as "not found".
  */
 public final class LrcLibClient {
 
     public static final String SOURCE = "LRCLIB";
-    private static final String BASE = "https://lrclib.net/api";
-    private static final Map<String, String> HEADERS = Collections.singletonMap(
-            "User-Agent", "AndroidLyricsStatus (https://github.com/Smegoligga/Android-Lyrics-Status)");
+    /** Upper bound on search requests per song, to stay polite to LRCLIB. */
+    private static final int MAX_SEARCHES = 7;
 
     /** Result of a lookup: lyrics, "instrumental", or nothing. */
     public static final class Result {
@@ -34,100 +33,91 @@ public final class LrcLibClient {
 
     public Result fetch(Track t) throws Exception {
         String plain = null;
-        boolean first = true;
-        for (String title : titleVariants(t.title)) {
-            for (String artist : artistVariants(t.artist)) {
-                // 1) exact signature lookup (needs album + duration), only for the tags as-is
-                if (first && !t.album.isEmpty() && t.durationMs > 0) {
-                    String url = BASE + "/get?track_name=" + Http.enc(title) + "&artist_name=" + Http.enc(artist)
-                            + "&album_name=" + Http.enc(t.album) + "&duration=" + Math.round(t.durationMs / 1000.0);
-                    Http.Response r = Http.request("GET", url, HEADERS, null, 15000);
-                    if (r.ok()) {
-                        Result res = fromRecord(new JSONObject(r.body));
-                        if (res.lyrics != null || res.instrumental) return res;
-                        if (plain == null) plain = res.plainFallback;
-                    }
-                }
-                first = false;
-                // 2) search, pick the closest synced record
-                String url = BASE + "/search?track_name=" + Http.enc(title)
-                        + (artist.isEmpty() ? "" : "&artist_name=" + Http.enc(artist));
-                Http.Response r = Http.request("GET", url, HEADERS, null, 15000);
-                if (!r.ok()) continue;
-                JSONArray arr = new JSONArray(r.body);
-                JSONObject best = pickBest(arr, t.durationMs);
-                if (best != null) {
-                    Result res = fromRecord(best);
-                    if (res.lyrics != null || res.instrumental) return res;
-                }
-                if (plain == null) plain = firstPlain(arr, t.durationMs);
+        List<String> who = LyricsSearch.credits(t.artist, t.title);
+        String main = who.isEmpty() ? t.artist : who.get(0);
+        String clean = LyricsSearch.cleanTitle(t.title);
+        List<String> whoKeys = new ArrayList<>();
+        for (String w : who) whoKeys.add(LyricsSearch.key(w));
+
+        // 1) exact lookups (LRCLIB needs the length for these)
+        if (t.durationMs > 0 && !t.artist.isEmpty()) {
+            LyricsSearch.Record r = LyricsSearch.get(t.title, t.artist, t.album, t.durationMs);
+            Result res = from(r);
+            if (res != null && (res.lyrics != null || res.instrumental)) return res;
+            if (r != null && !r.plain.isEmpty()) plain = r.plain;
+            if (!clean.equals(t.title.trim()) || !main.equals(t.artist.trim())) {
+                r = LyricsSearch.get(clean, main, "", t.durationMs);
+                res = from(r);
+                if (res != null && (res.lyrics != null || res.instrumental)) return res;
+                if (plain == null && r != null && !r.plain.isEmpty()) plain = r.plain;
             }
+        }
+
+        // 2) searches, most specific first
+        int n = 0;
+        for (String q : LyricsSearch.attempts(t.title, t.artist, t.album)) {
+            if (n++ >= MAX_SEARCHES) break;
+            boolean loose = q.startsWith("q=") || !q.contains("artist_name=");
+            List<LyricsSearch.Record> recs = LyricsSearch.query(q);
+            LyricsSearch.Record best = pick(recs, t.durationMs, loose ? whoKeys : null);
+            Result res = from(best);
+            if (res != null && (res.lyrics != null || res.instrumental)) return res;
+            if (plain == null) plain = firstPlain(recs, t.durationMs);
         }
         return new Result(null, false, plain);
     }
 
-    /** Synced records within ±3 s (or any, if duration unknown); the closest duration wins. */
-    static JSONObject pickBest(JSONArray arr, long durationMs) {
-        JSONObject best = null;
+    /**
+     * Closest synced (or instrumental) record within ±3 s. For loose searches the artist must match one of
+     * the credited artists, or, if it doesn't, the length must be within 1.5 s.
+     */
+    static LyricsSearch.Record pick(List<LyricsSearch.Record> recs, long durationMs, List<String> looseArtistKeys) {
+        LyricsSearch.Record best = null;
         double bestDiff = Double.MAX_VALUE;
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject o = arr.optJSONObject(i);
-            if (o == null) continue;
-            boolean synced = !o.optString("syncedLyrics", "").trim().isEmpty() && !o.isNull("syncedLyrics");
-            boolean instrumental = o.optBoolean("instrumental", false);
-            if (!synced && !instrumental) continue;
-            double diff = durationMs > 0 ? Math.abs(o.optDouble("duration", 0) - durationMs / 1000.0) : 0;
+        for (LyricsSearch.Record r : recs) {
+            if (!r.isSynced() && !r.instrumental) continue;
+            double diff = durationMs > 0 ? Math.abs(r.duration - durationMs / 1000.0) : 0;
             if (durationMs > 0 && diff > 3) continue;
-            // prefer synced over instrumental at equal distance
-            if (instrumental && !synced) diff += 0.5;
+            if (looseArtistKeys != null) {
+                boolean artistOk = artistMatches(r.artist, looseArtistKeys);
+                if (!artistOk && !(durationMs > 0 && diff <= 1.5)) continue;
+            }
+            if (r.instrumental && !r.isSynced()) diff += 0.5; // prefer real lyrics at equal distance
             if (diff < bestDiff) {
                 bestDiff = diff;
-                best = o;
+                best = r;
             }
         }
         return best;
     }
 
-    private static String firstPlain(JSONArray arr, long durationMs) {
-        for (int i = 0; i < arr.length(); i++) {
-            JSONObject o = arr.optJSONObject(i);
-            if (o == null || o.isNull("plainLyrics")) continue;
-            double diff = durationMs > 0 ? Math.abs(o.optDouble("duration", 0) - durationMs / 1000.0) : 0;
-            if (diff <= 3) return o.optString("plainLyrics", null);
+    static boolean artistMatches(String recordArtist, List<String> keys) {
+        for (String part : LyricsSearch.credits(recordArtist, "")) {
+            String k = LyricsSearch.key(part);
+            if (k.isEmpty()) continue;
+            for (String want : keys) {
+                if (!want.isEmpty() && (k.equals(want) || k.contains(want) || want.contains(k))) return true;
+            }
+        }
+        return false;
+    }
+
+    private static String firstPlain(List<LyricsSearch.Record> recs, long durationMs) {
+        for (LyricsSearch.Record r : recs) {
+            if (r.plain.isEmpty()) continue;
+            double diff = durationMs > 0 ? Math.abs(r.duration - durationMs / 1000.0) : 0;
+            if (diff <= 3) return r.plain;
         }
         return null;
     }
 
-    private static Result fromRecord(JSONObject o) {
-        String synced = o.isNull("syncedLyrics") ? "" : o.optString("syncedLyrics", "");
-        String plain = o.isNull("plainLyrics") ? null : o.optString("plainLyrics", null);
-        if (!synced.trim().isEmpty()) {
-            Lyrics l = LrcParser.parse(synced, SOURCE);
-            if (l.synced && !l.isEmpty()) return new Result(l, false, plain);
+    private static Result from(LyricsSearch.Record r) {
+        if (r == null) return null;
+        if (r.isSynced()) {
+            Lyrics l = LrcParser.parse(r.synced, SOURCE);
+            if (l.synced && !l.isEmpty()) return new Result(l, false, r.plain.isEmpty() ? null : r.plain);
         }
-        if (o.optBoolean("instrumental", false)) return new Result(null, true, null);
-        return new Result(null, false, plain);
-    }
-
-    /** Original title first, then OvalQuilter's " (…)" strip, then common suffixes. */
-    static Set<String> titleVariants(String title) {
-        Set<String> v = new LinkedHashSet<>();
-        String t = title.trim();
-        if (!t.isEmpty()) v.add(t);
-        String noParens = t.replaceAll("\\s*[(\\[][^)\\]]*[)\\]]", "").trim();
-        if (!noParens.isEmpty()) v.add(noParens);
-        String noDash = noParens.replaceAll("(?i)\\s+-\\s+(.*(remaster|version|mix|edit|live|mono|stereo|single|radio).*)$", "").trim();
-        if (!noDash.isEmpty()) v.add(noDash);
-        return v;
-    }
-
-    /** Full artist first, then just the first credited artist. */
-    static Set<String> artistVariants(String artist) {
-        Set<String> v = new LinkedHashSet<>();
-        String a = artist.trim();
-        v.add(a);
-        String first = a.split("(?i)\\s*(,|;|/|&| feat\\.? | ft\\.? | featuring | x | and )\\s*")[0].trim();
-        if (!first.isEmpty()) v.add(first);
-        return v;
+        if (r.instrumental) return new Result(null, true, null);
+        return new Result(null, false, r.plain.isEmpty() ? null : r.plain);
     }
 }

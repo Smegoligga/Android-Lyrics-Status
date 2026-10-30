@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 public final class LyricsSearch {
 
     private static final String BASE = "https://lrclib.net/api";
-    private static final Map<String, String> HEADERS = Collections.singletonMap(
+    static final Map<String, String> HEADERS = Collections.singletonMap(
             "User-Agent", "AndroidLyricsStatus (https://github.com/Smegoligga/Android-Lyrics-Status)");
 
     /** One LRCLIB record. */
@@ -63,6 +63,90 @@ public final class LyricsSearch {
 
     private LyricsSearch() {}
 
+    /** LRCLIB is overloaded/down (HTTP 5xx after retries): not the app's fault, worth saying so. */
+    public static final class ServiceDown extends Exception {
+        ServiceDown(int code) {
+            super("LRCLIB isn't responding right now (HTTP " + code + "). That's their server, not the app. "
+                    + "Try again in a minute.");
+        }
+    }
+
+    /** How requests are made; swapped out in tests. Returns the body of a 2xx, null for 404. */
+    interface Fetcher {
+        String get(String url) throws Exception;
+    }
+
+    static Fetcher fetcher = url -> {
+        Http.Response r = Http.getRetry(url, HEADERS, 15000);
+        if (r.code == 404) return null;
+        if (r.code >= 500 || r.code == 429) throw new ServiceDown(r.code);
+        if (!r.ok()) throw new Exception("LRCLIB HTTP " + r.code);
+        return r.body;
+    };
+
+    /**
+     * Everyone credited: the artist field split on "&", ",", "feat." etc., plus "(feat. X)" from the title.
+     * The main artist comes first.
+     */
+    public static List<String> credits(String artist, String title) {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        for (String a : nz(artist).split("(?i)\\s*(,|;|/|&| feat\\.? | ft\\.? | featuring | x | with | and )\\s*")) {
+            if (!a.trim().isEmpty()) out.add(a.trim());
+        }
+        java.util.regex.Matcher m = Pattern.compile("(?i)(?:feat\\.?|ft\\.?|featuring|with)\\s+([^)\\]]+)").matcher(nz(title));
+        while (m.find()) {
+            for (String a : m.group(1).split("(?i)\\s*(,|&| and | x )\\s*")) {
+                if (!a.trim().isEmpty()) out.add(a.trim());
+            }
+        }
+        return new ArrayList<>(out);
+    }
+
+    /**
+     * Search queries to try, most specific first: the tags as they are, without the album, cleaned title with
+     * the main artist, with each other credited artist alone, the title alone, then a free-text query.
+     */
+    static List<String> attempts(String title, String artist, String album) {
+        java.util.LinkedHashSet<String> q = new java.util.LinkedHashSet<>();
+        String raw = nz(title).trim(), clean = cleanTitle(title), alb = nz(album).trim();
+        List<String> who = credits(artist, title);
+        String main = who.isEmpty() ? "" : who.get(0);
+        String fullArtist = nz(artist).trim();
+        if (!raw.isEmpty() && !fullArtist.isEmpty() && !alb.isEmpty())
+            q.add("track_name=" + Http.enc(raw) + "&artist_name=" + Http.enc(fullArtist) + "&album_name=" + Http.enc(alb));
+        if (!raw.isEmpty() && !fullArtist.isEmpty())
+            q.add("track_name=" + Http.enc(raw) + "&artist_name=" + Http.enc(fullArtist));
+        if (!clean.isEmpty() && !main.isEmpty())
+            q.add("track_name=" + Http.enc(clean) + "&artist_name=" + Http.enc(main));
+        for (int i = 1; i < who.size(); i++)
+            q.add("track_name=" + Http.enc(clean) + "&artist_name=" + Http.enc(who.get(i)));
+        if (!clean.isEmpty()) q.add("track_name=" + Http.enc(clean));
+        if (!clean.isEmpty() && !main.isEmpty()) q.add("q=" + Http.enc(clean + " " + main));
+        return new ArrayList<>(q);
+    }
+
+    /** Free-text search: as typed, then without feat./prod./version tags. */
+    public static List<Record> searchSimple(String text, boolean ignoreExtras) throws Exception {
+        String t = nz(text).trim();
+        if (t.isEmpty()) return new ArrayList<>();
+        List<Record> out = query("q=" + Http.enc(t));
+        if (out.isEmpty() && ignoreExtras) {
+            String c = BARE_FEAT_INLINE.matcher(cleanTitle(t)).replaceAll(" ").replaceAll("\\s+", " ").trim();
+            if (!c.isEmpty() && !c.equalsIgnoreCase(t)) out = query("q=" + Http.enc(c));
+        }
+        return sortSynced(out);
+    }
+
+    // "feat. Name" inside free text (up to the next bracket), for the simple search
+    private static final Pattern BARE_FEAT_INLINE = Pattern.compile(
+            "(?i)\\b(?:feat\\.?|ft\\.?|featuring|prod\\.?)\\s+[^()\\[\\]]*?(?=\\s+-\\s+|$)");
+
+    private static List<Record> sortSynced(List<Record> in) {
+        List<Record> sorted = new ArrayList<>(in);
+        sorted.sort((x, y) -> Boolean.compare(y.isSynced(), x.isSynced()));
+        return sorted;
+    }
+
     /** Song title without featured artists, producers, remaster/edit tags. */
     public static String cleanTitle(String title) {
         if (title == null) return "";
@@ -98,12 +182,16 @@ public final class LyricsSearch {
         String s = ignoreExtras ? cleanTitle(song) : nz(song).trim();
         String a = ignoreExtras ? cleanArtist(artist) : nz(artist).trim();
         String al = ignoreExtras ? cleanTitle(album) : nz(album).trim();
-        List<Record> out;
+        List<Record> out = new ArrayList<>();
         if (!s.isEmpty()) {
-            out = query("track_name=" + Http.enc(s) + (a.isEmpty() ? "" : "&artist_name=" + Http.enc(a))
-                    + (al.isEmpty() ? "" : "&album_name=" + Http.enc(al)));
-            if (out.isEmpty() && !al.isEmpty()) {
-                out = query("track_name=" + Http.enc(s) + (a.isEmpty() ? "" : "&artist_name=" + Http.enc(a)));
+            // first variation that finds anything wins
+            List<String> tries = ignoreExtras ? attempts(song, artist, album)
+                    : java.util.Arrays.asList("track_name=" + Http.enc(s) + (a.isEmpty() ? "" : "&artist_name=" + Http.enc(a))
+                    + (al.isEmpty() ? "" : "&album_name=" + Http.enc(al)), "track_name=" + Http.enc(s)
+                    + (a.isEmpty() ? "" : "&artist_name=" + Http.enc(a)));
+            for (String q : tries) {
+                out = query(q);
+                if (!out.isEmpty()) break;
             }
         } else {
             String q = (a + " " + al).trim();
@@ -111,16 +199,13 @@ public final class LyricsSearch {
             out = query("q=" + Http.enc(q));
             if (!al.isEmpty()) out = filterAlbum(out, al);
         }
-        // synced first, then the order LRCLIB gave
-        List<Record> sorted = new ArrayList<>(out);
-        sorted.sort((x, y) -> Boolean.compare(y.isSynced(), x.isSynced()));
-        return sorted;
+        return sortSynced(out);
     }
 
     public static Record byId(long id) throws Exception {
-        Http.Response r = Http.request("GET", BASE + "/get/" + id, HEADERS, null, 15000);
-        if (!r.ok()) throw new Exception("HTTP " + r.code);
-        return new Record(new JSONObject(r.body));
+        String body = fetcher.get(BASE + "/get/" + id);
+        if (body == null) throw new Exception("Not found");
+        return new Record(new JSONObject(body));
     }
 
     /** The song called {@code title} on the given album, preferring synced lyrics and the closest length. */
@@ -169,10 +254,17 @@ public final class LyricsSearch {
         return out.isEmpty() ? in : out;
     }
 
-    private static List<Record> query(String params) throws Exception {
-        Http.Response r = Http.request("GET", BASE + "/search?" + params, HEADERS, null, 15000);
-        if (!r.ok()) throw new Exception("LRCLIB HTTP " + r.code);
-        return parse(new JSONArray(r.body));
+    static List<Record> query(String params) throws Exception {
+        String body = fetcher.get(BASE + "/search?" + params);
+        return body == null ? new ArrayList<>() : parse(new JSONArray(body));
+    }
+
+    /** Exact lookup (/api/get): needs title, artist and length; album optional. Null if not found. */
+    static Record get(String title, String artist, String album, long durationMs) throws Exception {
+        String body = fetcher.get(BASE + "/get?track_name=" + Http.enc(title) + "&artist_name=" + Http.enc(artist)
+                + (album == null || album.isEmpty() ? "" : "&album_name=" + Http.enc(album))
+                + "&duration=" + Math.round(durationMs / 1000.0));
+        return body == null ? null : new Record(new JSONObject(body));
     }
 
     static List<Record> parse(JSONArray arr) {

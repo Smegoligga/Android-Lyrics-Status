@@ -79,9 +79,10 @@ public final class LyricsRepository {
                 }
                 cache.putMiss(t, r.instrumental);
                 if (r.instrumental) return new Result(null, "Instrumental (LRCLIB)");
+            } catch (LyricsSearch.ServiceDown ex) {
+                return new Result(null, "LRCLIB is busy right now, tap Find again in a minute");
             } catch (Exception ex) {
-                return new Result(null, "LRCLIB error: " + ex.getClass().getSimpleName()
-                        + (ex.getMessage() != null ? " " + ex.getMessage() : ""));
+                return new Result(null, "Couldn't reach LRCLIB (" + ex.getClass().getSimpleName() + ")");
             }
         }
         return new Result(null, noneMessage(plainLocal, fileNote));
