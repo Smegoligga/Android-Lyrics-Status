@@ -64,7 +64,51 @@ public abstract class Skin {
 
     public abstract EditText edit();
 
-    public abstract View slider(String title, int value, int max, IntConsumer onChange, Runnable onRelease);
+    /**
+     * Slider with a value readout. {@code mark} >= 0 draws a "recommended" marker at that value and adds a
+     * caption ({@code markLabel}) that snaps the slider to it when tapped; -1 for none.
+     */
+    public abstract View slider(String title, int value, int max, int mark, String markLabel, String unit,
+                                IntConsumer onChange, Runnable onRelease);
+
+    /** SeekBar that draws a small marker (triangle above, tick below the track) at one value. */
+    public static class MarkedSeekBar extends android.widget.SeekBar {
+        private final int mark;
+        private final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final float d;
+
+        public MarkedSeekBar(android.content.Context c, int mark, int color) {
+            super(c);
+            this.mark = mark;
+            this.d = c.getResources().getDisplayMetrics().density;
+            p.setColor(color);
+            p.setStrokeWidth(Math.max(1.5f, 2 * d));
+            setMinimumHeight(Math.round(30 * d));
+        }
+
+        @Override
+        protected synchronized void onDraw(android.graphics.Canvas c) {
+            if (mark >= 0 && getMax() > 0) {
+                float w = getWidth() - getPaddingLeft() - getPaddingRight();
+                float x = getPaddingLeft() + w * mark / getMax();
+                float cy = getHeight() / 2f;
+                android.graphics.Path t = new android.graphics.Path();
+                t.moveTo(x - 5 * d, cy - 13 * d);
+                t.lineTo(x + 5 * d, cy - 13 * d);
+                t.lineTo(x, cy - 7 * d);
+                t.close();
+                p.setStyle(android.graphics.Paint.Style.FILL);
+                c.drawPath(t, p);
+                c.drawLine(x, cy + 7 * d, x, cy + 13 * d, p);
+            }
+            super.onDraw(c);
+        }
+    }
+
+    /** Readout text like "3 s" or "70". */
+    protected static String fmt(int v, String unit) {
+        return unit == null || unit.isEmpty() ? String.valueOf(v) : v + " " + unit;
+    }
 
     /** Theme chooser in this skin's style; calls {@code onPick} with a theme id. */
     public abstract View themePicker(String current, Consumer<String> onPick);

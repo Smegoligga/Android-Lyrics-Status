@@ -276,27 +276,29 @@ public final class CsSkin extends Skin {
     }
 
     @Override
-    public View slider(String title, int value, int max, IntConsumer onChange, Runnable onRelease) {
+    public View slider(String title, int value, int max, int mark, String markLabel, String unit,
+                       IntConsumer onChange, Runnable onRelease) {
         // .vslider: label, range in the accent colour, value readout
+        LinearLayout outer = vertical();
         LinearLayout l = new LinearLayout(a);
         l.setOrientation(LinearLayout.HORIZONTAL);
         l.setGravity(Gravity.CENTER_VERTICAL);
-        l.setPadding(0, dp(6), 0, dp(6));
+        l.setPadding(0, dp(6), 0, dp(2));
         TextView t = text(title, FS, false);
         l.addView(t, wrap());
-        SeekBar sb = new SeekBar(a);
+        SeekBar sb = new MarkedSeekBar(a, mark, ACCENT);
         sb.setMax(max);
         sb.setProgress(value);
         sb.setProgressTintList(ColorStateList.valueOf(ACCENT));
         sb.setProgressBackgroundTintList(ColorStateList.valueOf(LO));
         sb.setThumb(sliderThumb());
         sb.setSplitTrack(false);
-        TextView out = text(String.valueOf(value), FS, false);
-        out.setMinWidth(dp(28));
+        TextView out = text(fmt(value, unit), FS, false);
+        out.setMinWidth(dp(36));
         out.setGravity(Gravity.END);
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar s, int p, boolean u) {
-                out.setText(String.valueOf(p));
+                out.setText(fmt(p, unit));
                 if (u) onChange.accept(p);
             }
 
@@ -308,7 +310,20 @@ public final class CsSkin extends Skin {
         });
         l.addView(sb, new LinearLayout.LayoutParams(0, -2, 1f));
         l.addView(out, wrap());
-        return l;
+        outer.addView(l, fill());
+        if (mark >= 0) {
+            // caption styled like a .box h3 heading; tapping it is a VGUI button press
+            TextView cap = text("▲ " + markLabel, 12, true);
+            cap.setTextColor(ACCENT);
+            cap.setPadding(dp(4), 0, 0, dp(4));
+            cap.setOnClickListener(v -> {
+                sb.setProgress(mark);
+                onChange.accept(mark);
+            });
+            sfx.wire(cap);
+            outer.addView(cap);
+        }
+        return outer;
     }
 
     @Override

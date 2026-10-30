@@ -142,6 +142,7 @@ The app checks the sources in this order and uses the first **synced** lyrics it
 | **Restore my status when idle** | on, after 15 s | Puts back the status you had before the app took over. |
 | **Auto offset** | on, 3 samples | Sends each line early by Discord's average response time + 100 ms, like the original. |
 | **Manual offset** | 500 ms | Used when auto offset is off. A higher value makes lines appear earlier. |
+| **Lyrics delay** | 0 s (every line) | The minimum time between status changes. Faster lines are skipped and the newest one is sent. The slider marks the **recommended 3 s**; tap *Recommended* to use it. It keeps almost every line while avoiding the bursts that get you rate limited by Discord. Higher values also save battery. |
 
 ### 5. Battery
 
@@ -159,7 +160,7 @@ The app is built to stay out of the way.
 
 | Setting | Default | Effect |
 |---|---|---|
-| **Min. seconds between updates** | 0 (every line) | Each update is a network request that keeps the phone's radio awake. Set 5–10 s to skip fast lines and noticeably reduce drain while music plays. |
+| **Lyrics delay** (under Timing) | 0 s | Each update is a network request that keeps the phone's radio awake. Set 5–10 s to noticeably reduce drain while music plays. |
 
 > Deep sleep only applies with **Only follow Poweramp** on, because other players can't wake the app.
 

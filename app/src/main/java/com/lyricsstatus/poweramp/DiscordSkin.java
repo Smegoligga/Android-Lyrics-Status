@@ -207,24 +207,47 @@ public final class DiscordSkin extends Skin {
     }
 
     @Override
-    public View slider(String title, int value, int max, IntConsumer onChange, Runnable onRelease) {
+    public View slider(String title, int value, int max, int mark, String markLabel, String unit,
+                       IntConsumer onChange, Runnable onRelease) {
+        // Discord settings slider: title + value on one line, blurple fill, white handle
         LinearLayout l = vertical();
-        l.setPadding(0, dp(8), 0, dp(8));
+        l.setPadding(0, dp(10), 0, dp(10));
+        LinearLayout top = new LinearLayout(a);
+        top.setOrientation(LinearLayout.HORIZONTAL);
         TextView t = text(title, 16, false);
         t.setTypeface(medium);
         t.setTextColor(header);
-        l.addView(t);
-        SeekBar sb = new SeekBar(a);
+        top.addView(t, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView out = text(fmt(value, unit), 14, false);
+        out.setTypeface(medium);
+        out.setTextColor(headerSecondary);
+        top.addView(out, wrap());
+        l.addView(top);
+        SeekBar sb = new MarkedSeekBar(a, mark, GREEN);
         sb.setMax(max);
         sb.setProgress(value);
         sb.setProgressTintList(ColorStateList.valueOf(BLURPLE));
+        sb.setProgressBackgroundTintList(ColorStateList.valueOf(dark ? 0xFF4E5058 : 0xFFC4C9CE));
         sb.setThumbTintList(ColorStateList.valueOf(0xFFFFFFFF));
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            public void onProgressChanged(SeekBar s, int p, boolean u) { if (u) onChange.accept(p); }
+            public void onProgressChanged(SeekBar s, int p, boolean u) {
+                out.setText(fmt(p, unit));
+                if (u) onChange.accept(p);
+            }
             public void onStartTrackingTouch(SeekBar s) {}
             public void onStopTrackingTouch(SeekBar s) { if (onRelease != null) onRelease.run(); }
         });
-        l.addView(sb);
+        l.addView(sb, fill());
+        if (mark >= 0) {
+            TextView cap = text("▲ " + markLabel, 13, false);
+            cap.setTypeface(medium);
+            cap.setTextColor(GREEN);
+            cap.setOnClickListener(v -> {
+                sb.setProgress(mark);
+                onChange.accept(mark);
+            });
+            l.addView(cap);
+        }
         return l;
     }
 

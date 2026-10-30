@@ -41,6 +41,8 @@ import java.util.function.Function;
 public final class MainActivity extends Activity {
 
     private static final int REQ_SOUNDS = 7;
+    /** Lyrics delay slider range and the recommended value marked on it. */
+    private static final int MAX_DELAY = 15, RECOMMENDED_DELAY = 3;
 
     private App app;
     private Skin skin;
@@ -267,13 +269,22 @@ public final class MainActivity extends Activity {
                 (x, v) -> x.autoOffsetSamples = (int) clamp(v, 1, 20)));
         tim.addView(number("Manual offset (ms, when auto is off)", x -> String.valueOf(x.sendTimeOffset),
                 (x, v) -> x.sendTimeOffset = clamp(v, -10000, 10000)));
+        // Lyrics delay: minimum gap between status updates, with the recommended value marked
+        tim.addView(skin.slider("Lyrics delay", s.minUpdateSeconds, MAX_DELAY, RECOMMENDED_DELAY,
+                "Recommended: " + RECOMMENDED_DELAY + " s (tap to use)", "s", v -> {
+                    com.lyricsstatus.poweramp.core.Settings ns = app.settings();
+                    ns.minUpdateSeconds = v;
+                    app.updateSettings(ns);
+                }, null));
+        tim.addView(skin.hint("Minimum time between status changes. Lines that come faster are skipped and the "
+                + "newest one is sent. 0 sends every line like the original, but fast songs can then get you "
+                + "rate limited by Discord (the app waits it out). The recommended " + RECOMMENDED_DELAY + " s keeps "
+                + "almost every line while avoiding bursts. Higher also saves battery."));
 
         // ---- battery
         LinearLayout bat = group(6);
-        bat.addView(number("Min. seconds between updates", x -> String.valueOf(x.minUpdateSeconds),
-                (x, v) -> x.minUpdateSeconds = (int) clamp(v, 0, 60)));
-        bat.addView(skin.hint("0 = every lyric line, like the original. Each update is a network request that keeps "
-                + "the radio awake; 5–10 s skips fast lines and noticeably reduces drain while music plays. "
+        bat.addView(skin.hint("Each status update is a network request that keeps the radio awake, so a longer "
+                + "Lyrics delay (under Timing) uses less battery while music plays: 5–10 s noticeably reduces drain. "
                 + "With \"Only follow Poweramp\" on, the app goes fully to sleep after 10 minutes without playback "
                 + "and Poweramp wakes it when you press play."));
 
@@ -312,7 +323,7 @@ public final class MainActivity extends Activity {
             sfx.load(on, vol);
             setEnabledDeep(slider[0], on);
         }));
-        slider[0] = skin.slider("Volume", s.menuVolume, 100, vol -> {
+        slider[0] = skin.slider("Volume", s.menuVolume, 100, -1, null, "", vol -> {
             app.setMenuSounds(app.settings().menuSounds, vol);
             sfx.setVolume(vol);
         }, sfx::playRelease);

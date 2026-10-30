@@ -60,16 +60,16 @@ jobs:
           if [ -f "release-notes/$V.md" ]; then N="release-notes/$V.md"; else N="release-notes/default.md"; fi
           echo "notes=$N" >> "$GITHUB_OUTPUT"
 
-      # If this version's release already exists, remove APKs left by earlier builds (e.g. an old file name)
+      # If this version's release already exists, clear its old APKs first
       - name: Remove stale APKs from the release
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.name) }}"
-          NEW="$(basename app/build/outputs/apk/release/*.apk)"
+          # Delete every existing APK (same name too) so the upload below never collides with an old file
           for a in $(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' 2>/dev/null); do
-            if [ "$a" != "$NEW" ]; then gh release delete-asset "$TAG" "$a" --repo "$GITHUB_REPOSITORY" -y; fi
+            gh release delete-asset "$TAG" "$a" --repo "$GITHUB_REPOSITORY" -y || true
           done
 
       # Every push to main (or a v* tag) publishes the APK as a GitHub pre-release named after versionName.
