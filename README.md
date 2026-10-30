@@ -1,111 +1,221 @@
-# LyricsStatus for Poweramp
+<div align="center">
 
-Your Discord custom status follows the lyrics of whatever **Poweramp** is playing on your Android phone, line by line, in sync.
+# 🎶 LyricsStatus for Poweramp
 
-This is an Android port of [**LyricsStatus** by OvalQuilter](https://github.com/OvalQuilter/lyrics-status). The status format, placeholders, defaults, auto-offset timing and Discord request are ported from LyricsStatus v3. Instead of the Spotify API it uses Poweramp and your own music files.
+**Your Discord status, synced to the lyrics of what you're playing in Poweramp.**
+
+[![Build](https://github.com/Smegoligga/poweramp-lyrics-status/actions/workflows/build.yml/badge.svg)](https://github.com/Smegoligga/poweramp-lyrics-status/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/Smegoligga/poweramp-lyrics-status?include_prereleases&label=release)](https://github.com/Smegoligga/poweramp-lyrics-status/releases)
+![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
+![Poweramp](https://img.shields.io/badge/Poweramp-v3-E5484D)
+[![License](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
+
+</div>
+
+---
+
+LyricsStatus for Poweramp is an Android port of [**LyricsStatus** by OvalQuilter](https://github.com/OvalQuilter/lyrics-status). It doesn't use the Spotify API. Instead it follows **Poweramp** on your phone, finds synced lyrics for the song, and updates your Discord custom status one line at a time, in time with the music.
 
 ```
-Poweramp ──► track + file path (Poweramp broadcast)
-         └─► position to the millisecond (Android media session)
-                    │
-lyrics:  .lrc next to the file → embedded tags → cache → LRCLIB
-                    │
-         line due? (position + Discord delay + 100 ms)
-                    │
-Discord  PATCH users/@me/settings  { custom_status: "[1:23] Song lyrics - …" }
+🎶  [1:23] Song lyrics - and the words appear right on the beat
 ```
 
-## Where lyrics come from
+## ✨ Features
 
-The app checks these sources in order and uses the first synced lyrics it finds:
+- **Your own lyrics first.** It reads `.lrc` files next to your music, then lyrics embedded in the file's tags:
+  - MP3: `USLT`, `SYLT` and `TXXX`
+  - FLAC, Ogg and Opus: `LYRICS` and `SYNCEDLYRICS`
+  - M4A and ALAC: `©lyr`
+  - WAV, AIFF and APE
+- **Online fallback.** It uses synced lyrics from [LRCLIB](https://lrclib.net), matched by song length and cached on your phone.
+- **Accurate timing.** It reads Poweramp's position to the millisecond, and sends each line early by Discord's measured delay.
+- **Same formats as the original.** The timestamp, the `Song lyrics -` label, custom templates with all of OvalQuilter's placeholders, and custom emoji (including Nitro emoji) all work.
+- **Puts your status back.** It restores the status you had before when you pause or stop.
+- **Works as a Poweramp lyrics plugin.** Lyrics from LRCLIB also show up inside Poweramp itself.
+- **Battery friendly.** It sleeps until the next line is due instead of polling constantly.
+- **Small.** It has no third-party libraries and the APK is tiny.
 
-1. **`.lrc` files** with the same name as the song (`01 - Song.lrc` next to `01 - Song.flac`). It also looks for `Song.flac.lrc`, `Artist - Title.lrc`, and files in a `Lyrics/` subfolder. Encoding is detected automatically (UTF-8, UTF-16, GBK and Windows-1252).
-2. **Embedded lyrics** in the file's tags:
-   - MP3: ID3v2.2, v2.3 and v2.4 `USLT`, `SYLT` (including karaoke-style) and `TXXX:LYRICS`
-   - FLAC, Ogg Vorbis and Opus: `LYRICS`, `SYNCEDLYRICS` and `UNSYNCEDLYRICS`
-   - M4A and ALAC: `©lyr`
-   - WAV and AIFF: ID3 chunk
-   - APE, MPC and WavPack: APEv2
-3. **[LRCLIB](https://lrclib.net)**, a free synced-lyrics database (the same source LyricsStatus v3 uses). Results are matched by duration and cached on the phone.
+## 📥 Install
 
-Plain (unsynced) lyrics can't drive a status line by line. If your local lyrics are unsynced, the app tries LRCLIB for a synced version.
+1. Download the latest APK from **[Releases](https://github.com/Smegoligga/poweramp-lyrics-status/releases)**.
+2. Open it on your phone. Android will ask you to allow installs from your browser or file manager.
+3. Continue with [Configuration](#️-configuration).
 
-**Bonus:** the app also registers as a **Poweramp lyrics plugin**. When Poweramp has no lyrics for a track, it shows the ones from LRCLIB inside Poweramp too. You can turn this off in the settings.
+> Requires Android 8.0 or newer and Poweramp v3 (build 948+).
 
-## Getting the APK
+## ⚙️ Configuration
 
-You can't install this from a store, so you build it once. The repo already has a GitHub Actions workflow that does this.
+Open the **LyricsStatus** app. Everything is on one screen.
 
-1. Create a new GitHub repository and upload the contents of this folder.
-2. Open the **Actions** tab. The *Build APK* workflow runs on every push and takes about 3 minutes.
-3. Open the finished run and download **LyricsStatus-Poweramp-apk** under *Artifacts*. It's a zip containing the APK.
-4. Optional: push a tag like `v1.0.0` and the APK is also attached to a GitHub Release.
+### 1. Setup (one time)
 
-You can also build it with Android Studio (open the folder, then *Build → Build APK*) or with `./gradlew assembleRelease`.
-
-Every build is signed with the same key from `keystore/`, so a new APK installs over the old one and keeps your settings.
-
-## Setup on the phone
-
-1. Install the APK. You'll need to allow installs from your browser or file manager.
-2. Open **LyricsStatus** and complete each item in *Setup*:
-   - **Discord token:** paste it, tap *Save*, then *Test*. This is the same token LyricsStatus used. The easiest way to get it is on a computer: open discord.com/app in a browser, press F12, go to *Network*, click any `api` request and copy the `Authorization` header.
-   - **Notification access (required):** this is how the app reads Poweramp's exact playback position. It also keeps the app running in the background. Notification content is never read.
-   - **File access:** needed to read `.lrc` files and tags. Without it, only LRCLIB is used.
-   - **Unrestricted battery (recommended):** stops Android from cutting the app's network access while the screen is off.
-3. Play something in Poweramp. The card at the top shows the track, where the lyrics came from, the current line, and what was sent to Discord.
-
-> Poweramp caches its list of plugin apps. After installing, **pause and resume Poweramp once**, or restart it, so it starts sending events to this app.
-
-## Settings (vs. the original)
-
-| LyricsStatus | Here | Default |
+| Step | What to do | Why |
 |---|---|---|
-| Timestamp / label | *Show timestamp*, *Show "Song lyrics - " label* | on / on → `[1:23] Song lyrics - line` |
-| Advanced: custom status + emoji | *Custom format*, *Template*, *Emoji* | `[{timestamp}] [{lyrics}]`, 🎶 |
-| Autooffset / samples / send offset | *Timing* section | auto, 3 samples, 500 ms |
-| — | *Only follow Poweramp* (off = any player, online lyrics only) | on |
-| — | *Restore my status when idle* (puts your normal status back after pausing) | on, after 15 s |
-| — | *When a song has no synced lyrics* (template, empty = restore) | empty |
-| — | Sources: `.lrc`, embedded, LRCLIB, Poweramp plugin | all on |
+| **Discord token** | Paste it, tap **Save**, then **Test**. You should see your username. | Lets the app change your status. |
+| **Notification access** | Tap **Open notification access** and switch **LyricsStatus** on. | **Required.** Gives the exact playback position and keeps the app running in the background. Notifications are never read. |
+| **File access** | Tap **Grant file access** and allow *All files access*. | Needed to read `.lrc` files and embedded lyrics. Without it, only LRCLIB is used. |
+| **Unrestricted battery** | Tap **Allow background use**. | Recommended, so Android doesn't cut network access when the screen is off. |
 
-**Template placeholders** (same as LyricsStatus, plus two new ones):
+Then **pause and resume Poweramp once**. Poweramp only notices new plugin apps when playback starts.
 
-- Lyrics: `{lyrics}`, `{lyrics_upper}`, `{lyrics_lower}`, `{lyrics_letters_only}`, `{lyrics_upper_letters_only}`, `{lyrics_lower_letters_only}`
-- Time: `{timestamp}`, `{duration}` (new)
-- Song name: `{song_name}`, `{song_name_upper}`, `{song_name_lower}`, `{song_name_cropped}`, `{song_name_upper_cropped}`, `{song_name_lower_cropped}`
-- Artist: `{song_author}`, `{song_author_upper}`, `{song_author_lower}`
-- Album: `{album}` (new)
+<details>
+<summary><b>How do I get my Discord token?</b></summary>
 
-The emoji can be unicode, or `<:name:id>` for a Nitro emoji.
+It's the same token the original LyricsStatus uses. The easiest way to find it is on a computer:
 
-**Small behaviour changes from the original:**
+1. Open [discord.com/app](https://discord.com/app) in a browser (not the desktop app) and log in.
+2. Press **F12** and open the **Network** tab.
+3. Click around in Discord, for example switch channels.
+4. Click any request to `discord.com/api`, then find **Request Headers → Authorization**.
+5. Copy that value and paste it into the app.
 
-- Lines are re-sent after you seek backwards.
-- During long instrumental gaps, the status is refreshed before Discord's 60-second expiry so it doesn't vanish.
-- After a rate limit, the newest line is sent instead of a backlog.
-- The app sleeps until the next line is due instead of polling 60 times a second, to save battery.
+⚠️ The token gives full access to your account, so never share it. If you log out or change your password, Discord issues a new one and you'll need to paste it again.
+</details>
 
-## Troubleshooting
+### 2. Status format
 
-- **"Grant notification access"** even though you granted it: toggle it off and on again in Android settings. Some phones (Xiaomi, Huawei, Oppo) also need *Autostart* allowed.
-- **"Discord rejected the token (401)":** your token changed. This happens when you log out or change your password. Paste the new one.
-- **"No synced lyrics found (file not accessible)":** grant *File access*, then tap *Find lyrics again*.
-- **Lines appear late or early:** keep *Auto offset* on, or turn it off and adjust *Manual offset*. A higher value sends lines earlier.
-- **Wrong lyrics from LRCLIB:** put a correct `.lrc` next to the file, since local files always win. Then tap *Clear cache*.
+The default looks exactly like OvalQuilter's: `🎶 [1:23] Song lyrics - line`.
 
-## ⚠️ Discord Terms of Service
+| Setting | Effect |
+|---|---|
+| **Show timestamp** | Adds `[1:23]` before the line. |
+| **Show "Song lyrics - " label** | Adds the label before the line. |
+| **Custom format** | Uses your own **Template** and **Emoji** instead of the default. |
+| **When a song has no synced lyrics** | What to show for songs without lyrics. For example `Listening to {song_name} by {song_author}`. Leave it empty to restore your normal status. |
 
-Like the original LyricsStatus, this app changes your status through Discord's API using your user token. That is against Discord's Terms of Service, so **use it at your own risk**. Your token gives full access to your account:
+**Template placeholders**
 
-- It's stored only in the app's private storage.
-- It's excluded from Android backups.
-- It's sent only to `discord.com`.
+| Placeholder | Example output |
+|---|---|
+| `{lyrics}`, `{lyrics_upper}`, `{lyrics_lower}` | the current line, in its original case, upper case or lower case |
+| `{lyrics_letters_only}` (also `_upper_` / `_lower_` variants) | the line without `' " , .` |
+| `{timestamp}`, `{duration}` | `1:23`, `3:45` |
+| `{song_name}`, `{song_name_cropped}` | `Song (Remastered)`, `Song` |
+| `{song_name_upper}`, `{song_name_lower}` (also `_cropped` variants) | `SONG`, `song` |
+| `{song_author}`, `{song_author_upper}`, `{song_author_lower}` | `Artist`, `ARTIST`, `artist` |
+| `{album}` | `Album` |
 
-## Credits and license
+**Emoji** can be any unicode emoji, or `<:name:id>` / `<a:name:id>` for a Nitro emoji.
 
-- [LyricsStatus](https://github.com/OvalQuilter/lyrics-status) by **OvalQuilter**, the original idea and the code this port is based on (GPL-2.0).
-- [Poweramp API](https://github.com/maxmpz/powerampapi) by Maksim Petrov, for the track broadcasts and lyrics plugin protocol.
-- [LRCLIB](https://lrclib.net) for synced lyrics.
+### 3. Lyrics sources
 
-Because this is derived from LyricsStatus, it is released under the same license, **GPL-2.0** (see `LICENSE`).
+The app checks the sources in this order and uses the first **synced** lyrics it finds:
+
+1. **`.lrc` files.** Name the file like the song (`01 - Song.lrc` next to `01 - Song.flac`). The app also checks a `Lyrics/` subfolder and `Artist - Title.lrc`.
+2. **Embedded lyrics** in the file's tags.
+3. **LRCLIB** online. Results are cached, and so are misses (for 3 days).
+
+| Setting | Effect |
+|---|---|
+| **Go online if local lyrics aren't synced** | Plain-text lyrics can't follow the music, so the app tries LRCLIB instead. |
+| **Act as Poweramp lyrics plugin** | When Poweramp has no lyrics for a song, it shows the LRCLIB ones too. |
+| **Find lyrics again / Clear cache** (top card) | Retry a lookup, for example after adding a `.lrc` file or granting file access. |
+
+### 4. General and timing
+
+| Setting | Default | Effect |
+|---|---|---|
+| **Enabled** | on | Master switch. |
+| **Only follow Poweramp** | on | Turn off to follow any music app. Other apps only get online lyrics. |
+| **Restore my status when idle** | on, after 15 s | Puts back the status you had before LyricsStatus took over. |
+| **Auto offset** | on, 3 samples | Sends each line early by Discord's average response time + 100 ms, like the original. |
+| **Manual offset** | 500 ms | Used when auto offset is off. A higher value makes lines appear earlier. |
+
+## 🛠️ Building from source
+
+<details open>
+<summary><b>Option A: GitHub Actions (no tools needed)</b></summary>
+
+1. **Fork** this repository, or push your changes to it.
+2. Open the **Actions** tab. The **Build APK** workflow runs on every push to `main`.
+3. When it finishes, the APK is published under **Releases**, named after `versionName` in `app/build.gradle`. It's also available as a downloadable artifact on the workflow run page.
+
+To make a new version, change `versionName` (and increase `versionCode`) in `app/build.gradle`, then push.
+</details>
+
+<details>
+<summary><b>Option B: Android Studio</b></summary>
+
+1. Install [Android Studio](https://developer.android.com/studio).
+2. **File → Open** the project folder and wait for Gradle sync to finish.
+3. Choose **Build → Build App Bundle(s) / APK(s) → Build APK(s)**, or press ▶ with your phone connected.
+</details>
+
+<details>
+<summary><b>Option C: Command line</b></summary>
+
+Requirements:
+- **JDK 17**
+- The **Android SDK** with platform 35 and build-tools 35. Set `ANDROID_HOME` or create `local.properties` with `sdk.dir=/path/to/sdk`.
+
+```bash
+git clone https://github.com/Smegoligga/poweramp-lyrics-status.git
+cd poweramp-lyrics-status
+./gradlew assembleRelease        # Windows: gradlew.bat assembleRelease
+```
+
+The APK is written to `app/build/outputs/apk/release/LyricsStatus-Poweramp-<version>-release.apk`.
+
+Install it over USB with:
+
+```bash
+adb install -r app/build/outputs/apk/release/*.apk
+```
+</details>
+
+> **Signing:** every build is signed with the shared key in `keystore/`, so a new APK installs over the old one and keeps your settings. If you publish your own fork for other people, replace it with a private key.
+
+<details>
+<summary><b>Project layout</b></summary>
+
+```
+app/src/main/java/com/lyricsstatus/poweramp/
+├── core/                    plain Java, no Android code
+│   ├── Engine.java           decides which line to send when (port of StatusChanger/index.ts)
+│   ├── Formatter.java        status text and placeholders
+│   ├── AutoOffset.java       Discord delay compensation
+│   ├── LrcParser.java        LRC / enhanced LRC parsing
+│   ├── TagLyricsReader.java  embedded lyrics: ID3, FLAC, Ogg, Opus, MP4, APE, WAV, AIFF
+│   ├── LocalLyricsFinder.java  .lrc lookup and Poweramp path resolution
+│   ├── LrcLibClient.java     LRCLIB lookup
+│   ├── LyricsCache.java      on-device lyrics cache
+│   ├── LyricsRepository.java order of lyrics sources
+│   ├── DiscordClient.java    custom status API
+│   └── StatusSender.java     request queue, rate limits, status restore
+├── App.java                 wires everything together
+├── MediaListenerService.java  media session position (notification access)
+├── PowerampReceiver.java    Poweramp track and status broadcasts
+├── LyricsRequestReceiver.java  Poweramp lyrics plugin
+├── PowerampApi.java         Poweramp API constants
+├── Prefs.java               settings storage
+└── MainActivity.java        settings screen
+```
+</details>
+
+## ❓ Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| "Grant notification access" stays red | Toggle the permission off and on again. On Xiaomi, Huawei or Oppo phones, also allow **Autostart**. |
+| Nothing happens in Poweramp | Pause and resume Poweramp once after installing. |
+| "Discord rejected the token (401)" | Your token changed. Paste the new one. |
+| "No synced lyrics found (file not accessible)" | Grant **File access**, then tap **Find lyrics again**. |
+| Lines are early or late | Keep **Auto offset** on, or turn it off and adjust **Manual offset**. |
+| Wrong lyrics | Put a correct `.lrc` next to the song (local files always win), then tap **Clear cache**. |
+
+## ⚠️ Disclaimer
+
+Like the original LyricsStatus, this app changes your status through Discord's API with your user token. **That is against Discord's Terms of Service, so use it at your own risk.**
+
+Your token:
+- is stored only in the app's private storage,
+- is excluded from Android backups,
+- is only ever sent to `discord.com`.
+
+## 🙏 Credits
+
+- **[LyricsStatus](https://github.com/OvalQuilter/lyrics-status) by OvalQuilter.** The original idea, and the code this app is ported from.
+- **[Poweramp API](https://github.com/maxmpz/powerampapi)** by Maksim Petrov, for the track broadcasts and the lyrics plugin protocol.
+- **[LRCLIB](https://lrclib.net)**, for free synced lyrics.
+
+This project is derived from LyricsStatus, so it uses the same license: **[GPL-2.0](LICENSE)**.
