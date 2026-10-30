@@ -71,6 +71,8 @@ public final class Engine {
     private float speed = 1f;
 
     private int currentIdx = -1;
+    /** Index of the last lyric line actually sent (for merging lines skipped by the lyrics delay). */
+    private int lastSentIdx = -1;
     private String currentText; // what we last asked to show
     private long lastSendAt;
     private boolean idleSent = true;
@@ -125,6 +127,7 @@ public final class Engine {
         track = t;
         lyrics = null;
         currentIdx = -1;
+        lastSentIdx = -1;
         anchorPos = 0;
         anchorTime = sched.now();
         reload();
@@ -223,7 +226,7 @@ public final class Engine {
                 goIdle();
                 return;
             }
-            String text = Formatter.template(tpl, null, track);
+            String text = Formatter.clip(WordFilter.apply(Formatter.template(tpl, null, track), settings));
             if (!text.equals(currentText) || now >= refreshDue) send(text, true);
             schedule(Math.max(1000, (lastSendAt + Math.max(10_000, expiryMs - 15_000)) - now));
             return;
@@ -248,7 +251,9 @@ public final class Engine {
                     return;
                 }
                 currentIdx = idx;
-                send(Formatter.forLine(settings, line, track), false);
+                Lyrics.Line toSend = settings.mergeLines && gap > 0 ? merged(idx, target, gap, line) : line;
+                lastSentIdx = idx;
+                send(Formatter.forLine(settings, toSend, track), false);
                 refreshDue = lastSendAt + Math.max(10_000, expiryMs - 15_000);
             }
         } else if (now >= refreshDue) {
@@ -267,9 +272,41 @@ public final class Engine {
         if (next != Long.MAX_VALUE) schedule(Math.max(20, next));
     }
 
+    /**
+     * Lines skipped by the lyrics delay, joined with " / " (oldest first). Only lines after the last sent one
+     * that started within the delay window count, so seeking forward doesn't merge unheard lines.
+     * If the result is too long for Discord, the newest lines are kept and "… " is put in front.
+     */
+    private Lyrics.Line merged(int idx, long target, long gap, Lyrics.Line line) {
+        if (lastSentIdx < 0 || lastSentIdx >= idx) return line;
+        long windowStart = target - gap - 1000;
+        java.util.List<Lyrics.Line> parts = new java.util.ArrayList<>();
+        for (int i = lastSentIdx + 1; i <= idx; i++) {
+            Lyrics.Line l = lyrics.lines.get(i);
+            if (!l.text.isEmpty() && l.time >= windowStart) parts.add(l);
+        }
+        if (parts.size() < 2) return line;
+        // how much room the lyric text has once the timestamp/label/template is added
+        int budget = Formatter.MAX_LEN - Formatter.forLine(settings, new Lyrics.Line(parts.get(0).time, ""), track).length();
+        StringBuilder sb = new StringBuilder();
+        int used = 0;
+        for (int i = parts.size() - 1; i >= 0; i--) {
+            String t = parts.get(i).text;
+            int add = t.length() + (used == 0 ? 0 : 3);
+            if (used > 0 && used + add + 2 > budget) {
+                sb.insert(0, "… ");
+                break;
+            }
+            sb.insert(0, used == 0 ? t : t + " / ");
+            used += add;
+        }
+        return new Lyrics.Line(parts.get(0).time, sb.toString());
+    }
+
     private boolean currentTextIsTemplate;
 
     private void send(String text, boolean noLyricsTemplate) {
+        text = Formatter.clip(WordFilter.apply(text, settings));
         currentText = text;
         currentTextIsTemplate = noLyricsTemplate;
         lastSendAt = sched.now();
@@ -284,6 +321,7 @@ public final class Engine {
 
     private void goIdle() {
         currentIdx = -1;
+        lastSentIdx = -1;
         currentText = null;
         if (!idleSent) {
             idleSent = true;

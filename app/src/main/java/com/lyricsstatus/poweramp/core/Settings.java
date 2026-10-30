@@ -43,6 +43,18 @@ public final class Settings {
      * Fewer requests means the phone's radio can sleep more between lines.
      */
     public int minUpdateSeconds = 0;
+    /** When the lyrics delay skips lines, send them joined ("A / B") instead of only the newest. */
+    public boolean mergeLines = true;
+    /** App colour theme id (see Theme in the Android layer). */
+    public String theme = "classic";
+    /** CS 1.6 theme menu sounds (off by default, like smegolas.com) and their volume 0-100. */
+    public boolean menuSounds = false;
+    /** Mask strong swears and slurs in the status (off = nothing is censored). */
+    public boolean censor = false;
+    /** Mask the user's own words, listed comma- or line-separated. */
+    public boolean customFilterOn = false;
+    public String customFilter = "";
+    public int menuVolume = 70;
 
     public Settings copy() {
         Settings s = new Settings();
@@ -67,6 +79,13 @@ public final class Settings {
         s.pauseClearSeconds = pauseClearSeconds;
         s.statusExpirySeconds = statusExpirySeconds;
         s.minUpdateSeconds = minUpdateSeconds;
+        s.mergeLines = mergeLines;
+        s.theme = theme;
+        s.menuSounds = menuSounds;
+        s.censor = censor;
+        s.customFilterOn = customFilterOn;
+        s.customFilter = customFilter;
+        s.menuVolume = menuVolume;
         return s;
     }
 

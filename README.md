@@ -143,6 +143,7 @@ The app checks the sources in this order and uses the first **synced** lyrics it
 | **Auto offset** | on, 3 samples | Sends each line early by Discord's average response time + 100 ms, like the original. |
 | **Manual offset** | 500 ms | Used when auto offset is off. A higher value makes lines appear earlier. |
 | **Lyrics delay** | 0 s (every line) | The minimum time between status changes. Faster lines are skipped and the newest one is sent. The slider marks the **recommended 3 s**; tap *Recommended* to use it. It keeps almost every line while avoiding the bursts that get you rate limited by Discord. Higher values also save battery. |
+| **Merge skipped lines** | on | When the delay skips lines, they're shown together, like `line A / line B`, instead of only the newest one. Only lines skipped by the delay are merged, not ones you seek past. If the result is too long, the newest lines are kept. |
 
 ### 5. Battery
 
