@@ -161,6 +161,12 @@ public final class App extends Application {
         }
     }
 
+    /** Theme is UI-only: save it without touching the engine (no status re-send). */
+    public void setTheme(String id) {
+        settings.theme = id;
+        prefs.save(settings);
+    }
+
     // ------------------------------------------------------------------ battery: sleep while idle
 
     /**

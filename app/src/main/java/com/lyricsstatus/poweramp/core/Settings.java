@@ -43,6 +43,8 @@ public final class Settings {
      * Fewer requests means the phone's radio can sleep more between lines.
      */
     public int minUpdateSeconds = 0;
+    /** App colour theme id (see Theme in the Android layer). */
+    public String theme = "classic";
 
     public Settings copy() {
         Settings s = new Settings();
@@ -67,6 +69,7 @@ public final class Settings {
         s.pauseClearSeconds = pauseClearSeconds;
         s.statusExpirySeconds = statusExpirySeconds;
         s.minUpdateSeconds = minUpdateSeconds;
+        s.theme = theme;
         return s;
     }
 

@@ -41,6 +41,7 @@ import java.util.function.Function;
 public final class MainActivity extends Activity {
 
     private App app;
+    private Theme theme;
     private LinearLayout root;
     private TextView nowPlaying, lyricsInfo, currentLine, discordInfo, errorView;
     private TextView notifState, fileState, batteryState, tokenState;
@@ -56,6 +57,7 @@ public final class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         app = App.get(this);
+        theme = Theme.byId(app.settings().theme);
         ScrollView sv = new ScrollView(this);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -91,11 +93,19 @@ public final class MainActivity extends Activity {
     // ------------------------------------------------------------------ layout
 
     private void build() {
-        TextView title = text("Android Lyrics Status", 22, true);
-        root.addView(title);
+        // header banner in the theme colour, with bubbles like the ticket app's time banner
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(18), dp(20), dp(18), dp(20));
+        header.setBackground(theme.banner(dp(18), getResources().getDisplayMetrics().density));
+        TextView title = text("🎶 Android Lyrics Status", 22, true);
+        title.setTextColor(theme.onBg);
+        header.addView(title);
         TextView sub = text("Your Discord status follows the lyrics of whatever you're playing. Works with any music app; Poweramp is fully supported with extra features.", 14, false);
-        sub.setAlpha(0.75f);
-        root.addView(sub);
+        sub.setTextColor(theme.onBg);
+        sub.setAlpha(0.85f);
+        header.addView(sub);
+        root.addView(header);
 
         // live card
         LinearLayout live = card();
@@ -103,6 +113,7 @@ public final class MainActivity extends Activity {
         lyricsInfo = text("", 13, false);
         currentLine = text("", 15, false);
         currentLine.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.ITALIC));
+        currentLine.setTextColor(theme.bg);
         discordInfo = text("", 13, false);
         errorView = text("", 13, true);
         errorView.setTextColor(0xFFE5484D);
@@ -238,6 +249,18 @@ public final class MainActivity extends Activity {
                 + "the radio awake; 5–10 s skips fast lines and noticeably reduces drain while music plays. "
                 + "With \"Only follow Poweramp\" on, the app goes fully to sleep after 10 minutes without playback and Poweramp wakes it when you press play."));
         root.addView(bat);
+
+        // theme picker
+        section("Theme");
+        LinearLayout tc = card();
+        LinearLayout chips = new LinearLayout(this);
+        chips.setOrientation(LinearLayout.HORIZONTAL);
+        for (Theme t : Theme.ALL) chips.addView(themeChip(t), new LinearLayout.LayoutParams(0,
+                ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        tc.addView(chips);
+        tc.addView(hint("Orange, Blue, Pink and Green are the banner colours from your Museum ticket app. "
+                + "Light and dark mode follow your phone."));
+        root.addView(tc);
 
         // footer
         TextView foot = text("", 12, false);
@@ -377,6 +400,9 @@ public final class MainActivity extends Activity {
         }
         l.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         Switch sw = new Switch(this);
+        int[][] states = {{android.R.attr.state_checked}, {}};
+        sw.setThumbTintList(new android.content.res.ColorStateList(states, new int[]{theme.bg, 0xFFBDBDBD}));
+        sw.setTrackTintList(new android.content.res.ColorStateList(states, new int[]{theme.tint(0x80), 0x55808080}));
         sw.setChecked(get.apply(app.settings()));
         sw.setOnCheckedChangeListener((b, v) -> {
             com.lyricsstatus.poweramp.core.Settings s = app.settings();
@@ -451,9 +477,69 @@ public final class MainActivity extends Activity {
         };
     }
 
+    /** A colour circle with the theme name; the current theme gets a ring. Tapping applies it. */
+    private View themeChip(Theme t) {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        l.setGravity(Gravity.CENTER_HORIZONTAL);
+        l.setPadding(0, dp(4), 0, dp(4));
+        View dot = new View(this);
+        GradientDrawable d = new GradientDrawable();
+        d.setShape(GradientDrawable.OVAL);
+        d.setColor(t.bg);
+        boolean selected = t.id.equals(theme.id);
+        if (selected) d.setStroke(dp(3), t.tint(0x70));
+        dot.setBackground(d);
+        dot.setForeground(selected ? checkMark(t) : null);
+        l.addView(dot, new LinearLayout.LayoutParams(dp(selected ? 46 : 40), dp(selected ? 46 : 40)));
+        TextView name = text(t.name, 12, selected);
+        name.setGravity(Gravity.CENTER);
+        l.addView(name);
+        l.setContentDescription(t.name + " theme" + (selected ? ", selected" : ""));
+        l.setOnClickListener(v -> {
+            if (t.id.equals(theme.id)) return;
+            app.setTheme(t.id);
+            recreate();
+        });
+        return l;
+    }
+
+    private android.graphics.drawable.Drawable checkMark(Theme t) {
+        return new android.graphics.drawable.Drawable() {
+            private final android.graphics.Paint p = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+            @Override
+            public void draw(android.graphics.Canvas c) {
+                android.graphics.Rect b = getBounds();
+                p.setColor(t.onBg);
+                p.setStyle(android.graphics.Paint.Style.STROKE);
+                p.setStrokeWidth(dp(3));
+                p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+                p.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+                float w = b.width(), h = b.height();
+                android.graphics.Path path = new android.graphics.Path();
+                path.moveTo(b.left + w * 0.30f, b.top + h * 0.52f);
+                path.lineTo(b.left + w * 0.45f, b.top + h * 0.66f);
+                path.lineTo(b.left + w * 0.71f, b.top + h * 0.38f);
+                c.drawPath(path, p);
+            }
+
+            @Override
+            public void setAlpha(int a) {}
+
+            @Override
+            public void setColorFilter(android.graphics.ColorFilter f) {}
+
+            @Override
+            public int getOpacity() {
+                return android.graphics.PixelFormat.TRANSLUCENT;
+            }
+        };
+    }
+
     private void section(String title) {
         TextView t = text(title.toUpperCase(), 12, true);
-        t.setAlpha(0.7f);
+        t.setTextColor(theme.bg);
         t.setLetterSpacing(0.08f);
         t.setPadding(dp(4), dp(20), 0, dp(6));
         root.addView(t);
@@ -465,7 +551,7 @@ public final class MainActivity extends Activity {
         int p = dp(14);
         c.setPadding(p, p, p, p);
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(0x14808080);
+        bg.setColor(theme.tint(0x1A));
         bg.setCornerRadius(dp(14));
         c.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
@@ -486,6 +572,8 @@ public final class MainActivity extends Activity {
         Button b = new Button(this);
         b.setText(label);
         b.setAllCaps(false);
+        b.setTextColor(theme.onBg);
+        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(theme.bg));
         b.setOnClickListener(click);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);

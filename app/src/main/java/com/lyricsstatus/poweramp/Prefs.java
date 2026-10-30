@@ -39,6 +39,7 @@ public final class Prefs implements StatusSender.Store {
         s.pauseClearSeconds = sp.getInt("pauseClearSeconds", d.pauseClearSeconds);
         s.statusExpirySeconds = sp.getInt("statusExpirySeconds", d.statusExpirySeconds);
         s.minUpdateSeconds = sp.getInt("minUpdateSeconds", d.minUpdateSeconds);
+        s.theme = sp.getString("theme", d.theme);
         return s;
     }
 
@@ -65,6 +66,7 @@ public final class Prefs implements StatusSender.Store {
                 .putInt("pauseClearSeconds", s.pauseClearSeconds)
                 .putInt("statusExpirySeconds", s.statusExpirySeconds)
                 .putInt("minUpdateSeconds", s.minUpdateSeconds)
+                .putString("theme", s.theme)
                 .apply();
     }
 
