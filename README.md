@@ -59,7 +59,7 @@ The APK ends up in `app/build/outputs/apk/release/`.
 
 ## Disclaimer
 
-Changing your status with a user token is against Discord's Terms of Service, same as the original LyricsStatus. Use at your own risk.
+Changing your status with a user token is against Discord's Terms of Service. Use at your own risk.
 
 ## Credits
 
