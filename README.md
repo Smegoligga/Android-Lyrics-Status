@@ -1,20 +1,25 @@
 <div align="center">
 
-# 🎶 LyricsStatus for Poweramp
+# 🎶 Android Lyrics Status
 
-**Your Discord status, synced to the lyrics of what you're playing in Poweramp.**
+**Your Discord status, synced to the lyrics of whatever you're playing on Android.**
 
-[![Build](https://github.com/Smegoligga/poweramp-lyrics-status/actions/workflows/build.yml/badge.svg)](https://github.com/Smegoligga/poweramp-lyrics-status/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/Smegoligga/poweramp-lyrics-status?include_prereleases&label=release)](https://github.com/Smegoligga/poweramp-lyrics-status/releases)
+[![Build](https://github.com/Smegoligga/Android-Lyrics-Status/actions/workflows/build.yml/badge.svg)](https://github.com/Smegoligga/Android-Lyrics-Status/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/Smegoligga/Android-Lyrics-Status?include_prereleases&label=release)](https://github.com/Smegoligga/Android-Lyrics-Status/releases)
 ![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
-![Poweramp](https://img.shields.io/badge/Poweramp-v3-E5484D)
+![Any music app](https://img.shields.io/badge/works%20with-any%20music%20app-5865F2)
+![Poweramp](https://img.shields.io/badge/Poweramp-fully%20supported-E5484D)
 [![License](https://img.shields.io/badge/license-GPL--2.0-blue)](LICENSE)
 
 </div>
 
 ---
 
-LyricsStatus for Poweramp is an Android port of [**LyricsStatus** by OvalQuilter](https://github.com/OvalQuilter/lyrics-status). It doesn't use the Spotify API. Instead it follows **Poweramp** on your phone, finds synced lyrics for the song, and updates your Discord custom status one line at a time, in time with the music.
+Android Lyrics Status is an Android port of [**LyricsStatus** by OvalQuilter](https://github.com/OvalQuilter/lyrics-status). It doesn't use the Spotify API. Instead it follows **whatever music app is playing** on your phone, finds synced lyrics for the song, and updates your Discord custom status one line at a time, in time with the music.
+
+**[Poweramp](https://powerampapp.com) is the fully supported player**, with extra features the others don't get (see [Supported players](#-supported-players)).
+
+> Formerly *LyricsStatus for Poweramp*.
 
 ```
 🎶  [1:23] Song lyrics - and the words appear right on the beat
@@ -28,35 +33,50 @@ LyricsStatus for Poweramp is an Android port of [**LyricsStatus** by OvalQuilter
   - M4A and ALAC: `©lyr`
   - WAV, AIFF and APE
 - **Online fallback.** It uses synced lyrics from [LRCLIB](https://lrclib.net), matched by song length and cached on your phone.
-- **Accurate timing.** It reads Poweramp's position to the millisecond, and sends each line early by Discord's measured delay.
+- **Works with any music app.** Spotify, YouTube Music, Samsung Music, local players and more. Anything that shows media controls works.
+- **Accurate timing.** It reads the playback position to the millisecond, and sends each line early by Discord's measured delay.
 - **Same formats as the original.** The timestamp, the `Song lyrics -` label, custom templates with all of OvalQuilter's placeholders, and custom emoji (including Nitro emoji) all work.
 - **Puts your status back.** It restores the status you had before when you pause or stop.
-- **Works as a Poweramp lyrics plugin.** Lyrics from LRCLIB also show up inside Poweramp itself.
-- **Battery friendly.** It sleeps completely when Poweramp is idle and wakes only when a line is due. An optional battery saver limits how often the status updates.
+- **Poweramp extras.** It always finds your files' lyrics, works as a Poweramp lyrics plugin, and sleeps completely when Poweramp is idle.
+- **Battery friendly.** It wakes only when a line is due. An optional battery saver limits how often the status updates.
 - **Small.** It has no third-party libraries and the APK is tiny.
 
 ## 📥 Install
 
-1. Download the latest APK from **[Releases](https://github.com/Smegoligga/poweramp-lyrics-status/releases)**.
+1. Download the latest APK from **[Releases](https://github.com/Smegoligga/Android-Lyrics-Status/releases)**.
 2. Open it on your phone. Android will ask you to allow installs from your browser or file manager.
 3. Continue with [Configuration](#️-configuration).
 
-> Requires Android 8.0 or newer and Poweramp v3 (build 948+).
+> Requires Android 8.0 or newer. Poweramp features need Poweramp v3 (build 948+).
+
+## 🎧 Supported players
+
+| | **Poweramp** (fully supported) | **Any other music app** |
+|---|---|---|
+| Synced status, millisecond timing | ✅ | ✅ |
+| Lyrics from LRCLIB | ✅ | ✅ |
+| `.lrc` files and embedded lyrics | ✅ always, using the exact file path | ✅ when the song is in your music library (found by title and artist) |
+| Shows LRCLIB lyrics inside the player | ✅ as a Poweramp lyrics plugin | — |
+| Deep sleep while the player is idle | ✅ with *Only follow Poweramp* on | — |
+
+Streaming apps (Spotify, YouTube Music and so on) have no local files, so they use LRCLIB.
+
+If several apps are playing at once, Poweramp wins. Otherwise the app follows whichever one is playing.
 
 ## ⚙️ Configuration
 
-Open the **LyricsStatus** app. Everything is on one screen.
+Open the **Lyrics Status** app. Everything is on one screen.
 
 ### 1. Setup (one time)
 
 | Step | What to do | Why |
 |---|---|---|
 | **Discord token** | Paste it, tap **Save**, then **Test**. You should see your username. | Lets the app change your status. |
-| **Notification access** | Tap **Open notification access** and switch **LyricsStatus** on. | **Required.** Gives the exact playback position and keeps the app running in the background. Notifications are never read. |
+| **Notification access** | Tap **Open notification access** and switch **Lyrics Status** on. | **Required.** Gives the exact playback position and keeps the app running in the background. Notifications are never read. |
 | **File access** | Tap **Grant file access** and allow *All files access*. | Needed to read `.lrc` files and embedded lyrics. Without it, only LRCLIB is used. |
 | **Unrestricted battery** | Tap **Allow background use**. | Recommended, so Android doesn't cut network access when the screen is off. |
 
-Then **pause and resume Poweramp once**. Poweramp only notices new plugin apps when playback starts.
+**Poweramp users:** pause and resume Poweramp once. Poweramp only notices new plugin apps when playback starts.
 
 <details>
 <summary><b>How do I get my Discord token?</b></summary>
@@ -116,8 +136,8 @@ The app checks the sources in this order and uses the first **synced** lyrics it
 | Setting | Default | Effect |
 |---|---|---|
 | **Enabled** | on | Master switch. |
-| **Only follow Poweramp** | on | Turn off to follow any music app. Other apps only get online lyrics. |
-| **Restore my status when idle** | on, after 15 s | Puts back the status you had before LyricsStatus took over. |
+| **Only follow Poweramp** | off | Off: follow whichever app is playing. On: ignore other apps, and let the app sleep completely while Poweramp is idle. |
+| **Restore my status when idle** | on, after 15 s | Puts back the status you had before the app took over. |
 | **Auto offset** | on, 3 samples | Sends each line early by Discord's average response time + 100 ms, like the original. |
 | **Manual offset** | 500 ms | Used when auto offset is off. A higher value makes lines appear earlier. |
 
@@ -126,7 +146,8 @@ The app checks the sources in this order and uses the first **synced** lyrics it
 The app is built to stay out of the way.
 
 **While nothing plays:**
-- After 10 minutes without playback, it releases its background connection, so Android can stop it completely. Pressing play in Poweramp wakes it automatically.
+- **Poweramp-only mode:** after 10 minutes without playback, it releases its background connection, so Android can stop it completely. Pressing play in Poweramp wakes it automatically.
+- **Any mode:** it does no work at all while nothing plays.
 - On Android 13+, it only receives ongoing notifications (like the media one), not every message or email.
 
 **While music plays:**
@@ -138,7 +159,7 @@ The app is built to stay out of the way.
 |---|---|---|
 | **Min. seconds between updates** | 0 (every line) | Each update is a network request that keeps the phone's radio awake. Set 5–10 s to skip fast lines and noticeably reduce drain while music plays. |
 
-> Sleeping only applies with **Only follow Poweramp** on, because other players can't wake the app.
+> Deep sleep only applies with **Only follow Poweramp** on, because other players can't wake the app.
 
 ## 🛠️ Building from source
 
@@ -168,12 +189,12 @@ Requirements:
 - The **Android SDK** with platform 35 and build-tools 35. Set `ANDROID_HOME` or create `local.properties` with `sdk.dir=/path/to/sdk`.
 
 ```bash
-git clone https://github.com/Smegoligga/poweramp-lyrics-status.git
-cd poweramp-lyrics-status
+git clone https://github.com/Smegoligga/Android-Lyrics-Status.git
+cd Android-Lyrics-Status
 ./gradlew assembleRelease        # Windows: gradlew.bat assembleRelease
 ```
 
-The APK is written to `app/build/outputs/apk/release/LyricsStatus-Poweramp-<version>-release.apk`.
+The APK is written to `app/build/outputs/apk/release/Android-Lyrics-Status-<version>-release.apk`.
 
 Install it over USB with:
 
@@ -217,6 +238,8 @@ app/src/main/java/com/lyricsstatus/poweramp/
 |---|---|
 | "Grant notification access" stays red | Toggle the permission off and on again. On Xiaomi, Huawei or Oppo phones, also allow **Autostart**. |
 | Nothing happens in Poweramp | Pause and resume Poweramp once after installing. |
+| The wrong app is followed | Pause the other app, or turn on **Only follow Poweramp**. |
+| No lyrics for a streaming app | Streaming apps rely on LRCLIB. Check that the title and artist shown in the app's top card are right. |
 | "Discord rejected the token (401)" | Your token changed. Paste the new one. |
 | "No synced lyrics found (file not accessible)" | Grant **File access**, then tap **Find lyrics again**. |
 | Lines are early or late | Keep **Auto offset** on, or turn it off and adjust **Manual offset**. |

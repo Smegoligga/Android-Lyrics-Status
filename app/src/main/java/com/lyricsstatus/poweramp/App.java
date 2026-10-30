@@ -49,6 +49,8 @@ public final class App extends Application {
 
     /** True while a media session from the followed player feeds us exact positions. */
     volatile boolean mediaSessionActive;
+    /** Package of the player whose media session we follow, or null. */
+    volatile String followedPackage;
 
     /** How long playback must be idle before the listener sleeps (process can then be stopped). */
     static final long SLEEP_AFTER_IDLE_MS = 10 * 60 * 1000L;
@@ -208,6 +210,8 @@ public final class App extends Application {
 
     void onPowerampTrack(Bundle b, Bundle extras, boolean wake) {
         if (b == null) return;
+        // Universal mode: ignore Poweramp while we're following another app that is playing
+        if (mediaSessionActive && followedPackage != null && !PowerampApi.PACKAGE.equals(followedPackage)) return;
         if (wake) wakeForPoweramp();
         Track t = PowerampApi.trackFrom(b);
         if (t == null) return;

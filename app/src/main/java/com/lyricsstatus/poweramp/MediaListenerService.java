@@ -30,6 +30,10 @@ public final class MediaListenerService extends NotificationListenerService {
         @Override
         public void onPlaybackStateChanged(PlaybackState state) {
             pushState(state);
+            // Universal mode: if this app paused, another one may have started playing
+            if (state != null && state.getState() != PlaybackState.STATE_PLAYING && !App.get().settings().onlyPoweramp) {
+                refreshController();
+            }
         }
 
         @Override
@@ -116,28 +120,37 @@ public final class MediaListenerService extends NotificationListenerService {
         detach();
         if (pick == null) {
             App.get().mediaSessionActive = false;
+            App.get().followedPackage = null;
             return;
         }
         controller = pick;
+        App.get().followedPackage = pick.getPackageName();
         controller.registerCallback(callback, App.get().main);
         App.get().mediaSessionActive = true;
         pushMetadata(controller.getMetadata());
         pushState(controller.getPlaybackState());
     }
 
+    /**
+     * Universal mode: the app that is actually playing wins (Poweramp first if several are), otherwise
+     * Poweramp, otherwise the most recent session. Poweramp-only mode: just Poweramp.
+     */
     private MediaController choose(List<MediaController> sessions) {
         if (sessions == null || sessions.isEmpty()) return null;
         boolean onlyPoweramp = App.get().settings().onlyPoweramp;
-        MediaController fallback = null;
+        MediaController playing = null, poweramp = null, first = null;
         for (MediaController c : sessions) {
             boolean isPa = PowerampApi.PACKAGE.equals(c.getPackageName());
             if (onlyPoweramp && !isPa) continue;
-            if (isPa) return c;
+            if (first == null) first = c;
+            if (isPa && poweramp == null) poweramp = c;
             PlaybackState st = c.getPlaybackState();
-            if (st != null && st.getState() == PlaybackState.STATE_PLAYING) return c;
-            if (fallback == null) fallback = c;
+            boolean isPlaying = st != null && st.getState() == PlaybackState.STATE_PLAYING;
+            if (isPlaying && (playing == null || isPa)) playing = c;
         }
-        return fallback;
+        if (playing != null) return playing;
+        if (poweramp != null) return poweramp;
+        return first;
     }
 
     private void detach() {

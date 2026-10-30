@@ -17,7 +17,7 @@ public final class LrcLibClient {
     public static final String SOURCE = "LRCLIB";
     private static final String BASE = "https://lrclib.net/api";
     private static final Map<String, String> HEADERS = Collections.singletonMap(
-            "User-Agent", "LyricsStatus-Poweramp/1.0 (https://github.com/OvalQuilter/lyrics-status)");
+            "User-Agent", "AndroidLyricsStatus (https://github.com/Smegoligga/Android-Lyrics-Status)");
 
     /** Result of a lookup: lyrics, "instrumental", or nothing. */
     public static final class Result {

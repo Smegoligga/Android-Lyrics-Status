@@ -30,7 +30,7 @@ public final class LyricsRequestReceiver extends BroadcastReceiver {
         app.io.execute(() -> {
             try {
                 String lyrics = app.repository().fetchForPoweramp(t, s);
-                PowerampApi.sendLyrics(appCtx, t.realId, lyrics, lyrics != null ? "Lyrics from LRCLIB · LyricsStatus" : null);
+                PowerampApi.sendLyrics(appCtx, t.realId, lyrics, lyrics != null ? "Lyrics from LRCLIB · Android Lyrics Status" : null);
             } catch (Throwable e) {
                 Log.w(App.TAG, "Poweramp lyrics request failed", e);
             }

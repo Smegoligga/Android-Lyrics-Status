@@ -21,7 +21,8 @@ public final class Settings {
 
     // new for the Android/Poweramp version
     public boolean enabled = true;
-    public boolean onlyPoweramp = true;
+    /** Universal by default: follow whichever app is playing. Poweramp gets extra features either way. */
+    public boolean onlyPoweramp = false;
     public boolean useLocalLrc = true;
     public boolean useEmbedded = true;
     public boolean useLrclib = true;

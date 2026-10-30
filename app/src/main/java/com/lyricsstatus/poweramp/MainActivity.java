@@ -91,9 +91,9 @@ public final class MainActivity extends Activity {
     // ------------------------------------------------------------------ layout
 
     private void build() {
-        TextView title = text("LyricsStatus for Poweramp", 22, true);
+        TextView title = text("Android Lyrics Status", 22, true);
         root.addView(title);
-        TextView sub = text("Your Discord status follows the lyrics of what Poweramp is playing.", 14, false);
+        TextView sub = text("Your Discord status follows the lyrics of whatever you're playing. Works with any music app; Poweramp is fully supported with extra features.", 14, false);
         sub.setAlpha(0.75f);
         root.addView(sub);
 
@@ -159,13 +159,13 @@ public final class MainActivity extends Activity {
 
         notifState = label("");
         setup.addView(notifState);
-        setup.addView(hint("Required. Lets the app read Poweramp's playback position to the millisecond and keeps it "
+        setup.addView(hint("Required. Lets the app see what your music app is playing, to the millisecond, and keeps it "
                 + "running in the background. Notifications themselves are ignored."));
         setup.addView(button("Open notification access", v -> openNotificationAccess()));
 
         fileState = label("");
         setup.addView(fileState);
-        setup.addView(hint("Needed for .lrc files next to your music and for lyrics embedded in tags. "
+        setup.addView(hint("Needed for .lrc files next to your music and for lyrics embedded in tags (Poweramp, or other players when the song is in your music library). "
                 + "Without it only online lyrics (LRCLIB) are used."));
         setup.addView(button("Grant file access", v -> requestFileAccess()));
 
@@ -179,7 +179,7 @@ public final class MainActivity extends Activity {
         section("General");
         LinearLayout gen = card();
         gen.addView(toggle("Enabled", "Update my Discord status", x -> x.enabled, (x, v) -> x.enabled = v));
-        gen.addView(toggle("Only follow Poweramp", "Off: follow whichever player is playing (online lyrics only for other apps)",
+        gen.addView(toggle("Only follow Poweramp", "Off: follow whichever app is playing. On: Poweramp only, and the app can sleep completely while Poweramp is idle",
                 x -> x.onlyPoweramp, (x, v) -> x.onlyPoweramp = v));
         gen.addView(toggle("Restore my status when idle", "Put back the status you had before, after pausing/stopping",
                 x -> x.restoreStatus, (x, v) -> x.restoreStatus = v));
@@ -236,7 +236,7 @@ public final class MainActivity extends Activity {
                 (x, v) -> x.minUpdateSeconds = (int) clamp(v, 0, 60)));
         bat.addView(hint("0 = every lyric line, like the original. Each update is a network request that keeps "
                 + "the radio awake; 5–10 s skips fast lines and noticeably reduces drain while music plays. "
-                + "When Poweramp hasn't played for 10 minutes, the app goes fully to sleep until you press play."));
+                + "With \"Only follow Poweramp\" on, the app goes fully to sleep after 10 minutes without playback and Poweramp wakes it when you press play."));
         root.addView(bat);
 
         // footer
@@ -258,7 +258,7 @@ public final class MainActivity extends Activity {
         if (st.track == null) {
             nowPlaying.setText("Nothing playing");
             lyricsInfo.setText(MediaListenerService.isConnected() || notificationAccessGranted()
-                    ? "Start a song in Poweramp" : "Grant notification access below");
+                    ? "Start playing music" : "Grant notification access below");
             currentLine.setText("");
         } else {
             nowPlaying.setText((st.playing ? "▶ " : "⏸ ") + st.track.title
