@@ -52,6 +52,7 @@ public final class MainActivity extends Activity {
     private final List<View> anchors = new ArrayList<>();
     private TextView nowPlaying, lyricsInfo, currentLine, discordInfo, errorView;
     private TextView notifState, fileState, batteryState, tokenState, soundState;
+    private Button resetSounds;
     private final Runnable refresher = new Runnable() {
         @Override
         public void run() {
@@ -125,7 +126,7 @@ public final class MainActivity extends Activity {
     }
 
     private void build() {
-        root.addView(skin.header("🎶 Android Lyrics Status",
+        root.addView(skin.header("Android Lyrics Status",
                 "Your Discord status follows the lyrics of whatever you're playing. Works with any music app; "
                         + "Poweramp is fully supported with extra features."));
 
@@ -321,7 +322,7 @@ public final class MainActivity extends Activity {
     private void buildSounds(LinearLayout opt, com.lyricsstatus.poweramp.core.Settings s) {
         opt.addView(skin.label("Audio"));
         final View[] slider = new View[1];
-        opt.addView(skin.toggle("Menu sounds", "The game's menu sounds when you press buttons, in the CS 1.6 theme only. "
+        opt.addView(skin.toggle("Menu sounds", "Menu sounds when you press buttons, in the CS 1.6 theme only. "
                 + "Off by default.", s.menuSounds, on -> {
             int vol = app.settings().menuVolume;
             app.setMenuSounds(on, vol);
@@ -337,19 +338,28 @@ public final class MainActivity extends Activity {
         opt.addView(slider[0]);
         soundState = skin.hint("");
         opt.addView(soundState);
-        opt.addView(skin.button("Import sound files…", false, v -> pickSounds()));
-        opt.addView(skin.hint("Pick buttonrollover.wav, buttonclick.wav and buttonclickrelease.wav, from smegolas.com "
-                + "or your Half-Life folder (steamapps/common/Half-Life/valve/sound/UI). They're Valve's files, so "
-                + "they're copied into the app rather than shipped with it."));
+        LinearLayout soundBtns = skin.row();
+        soundBtns.addView(skin.button("Import sound files…", false, v -> pickSounds()));
+        resetSounds = skin.button("Use built-in sounds", false, v -> {
+            sfx.resetToBuiltIn();
+            com.lyricsstatus.poweramp.core.Settings cur = app.settings();
+            sfx.load(cur.menuSounds, cur.menuVolume);
+            refreshSoundState();
+            toast("Back to the built-in sounds");
+        });
+        soundBtns.addView(resetSounds);
+        opt.addView(soundBtns);
+        opt.addView(skin.hint("The app has its own sounds built in. To use different ones, import files named "
+                + "buttonrollover.wav, buttonclick.wav and buttonclickrelease.wav; they replace the built-in ones "
+                + "until you tap Use built-in sounds."));
         refreshSoundState();
     }
 
     private void refreshSoundState() {
         if (soundState == null) return;
-        int n = sfx.available();
-        soundState.setText(n == 0 ? "No sound files added for this theme yet."
-                : sfx.describe() + (sfx.enabled() ? "" : "\nTick Menu sounds to hear them.")
+        soundState.setText(sfx.describe() + (sfx.enabled() ? "" : "\nTick Menu sounds to hear them.")
                 + "\nPlays at your media volume.");
+        if (resetSounds != null) resetSounds.setVisibility(sfx.imported() > 0 ? View.VISIBLE : View.GONE);
     }
 
     private void pickSounds() {

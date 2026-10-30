@@ -85,3 +85,17 @@ jobs:
           make_latest: false
           body_path: ${{ steps.version.outputs.notes }}
           files: app/build/outputs/apk/release/*.apk
+
+      # Keep older releases' text in sync with their release-notes/<version>.md files
+      - name: Sync release notes
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for f in release-notes/*.md; do
+            v=$(basename "$f" .md)
+            [ "$v" = "default" ] && continue
+            if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              gh release edit "v$v" --repo "$GITHUB_REPOSITORY" --notes-file "$f"
+            fi
+          done

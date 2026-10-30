@@ -24,13 +24,17 @@ import java.util.Locale;
  *  - buttonclickrelease.wav on click (release)
  *  - gain = volume / 100 * 0.6 (the game files are loud), volume default 70, off by default
  *
- * The .wav files are Valve's, so they aren't bundled: you import them once and they're copied into
- * the app's private storage. Missing files are simply skipped, like on the site.
+ * The app ships its own built-in set (res/raw, made for this app). Imported files with the same names
+ * override them and are copied into the app's private storage; "Use built-in sounds" deletes the imports.
  */
 public final class Sfx {
     public static final String[] FILES = {"buttonrollover.wav", "buttonclick.wav", "buttonclickrelease.wav"};
     private static final int ROLLOVER = 0, CLICK = 1, RELEASE = 2;
 
+    /** Built-in sounds, same order as FILES. */
+    private static final int[] RAW = {R.raw.buttonrollover, R.raw.buttonclick, R.raw.buttonclickrelease};
+
+    private final Context ctx;
     private final File dir;
     private SoundPool pool;
     private final int[] ids = {0, 0, 0};
@@ -42,6 +46,7 @@ public final class Sfx {
     private long lastRoll;
 
     public Sfx(Context c) {
+        ctx = c.getApplicationContext();
         dir = new File(c.getFilesDir(), "sounds/cs16");
         //noinspection ResultOfMethodCallIgnored
         dir.mkdirs();
@@ -66,9 +71,8 @@ public final class Sfx {
         });
         for (int i = 0; i < FILES.length; i++) {
             File f = new File(dir, FILES[i]);
-            ids[i] = f.isFile() ? pool.load(f.getPath(), 1) : 0;
-            state[i] = 0;
-            if (ids[i] == 0 && f.isFile()) state[i] = -1;
+            ids[i] = f.isFile() ? pool.load(f.getPath(), 1) : pool.load(ctx, RAW[i], 1);
+            state[i] = ids[i] == 0 ? -1 : 0;
         }
     }
 
@@ -83,15 +87,23 @@ public final class Sfx {
         state[0] = state[1] = state[2] = 0;
     }
 
-    /** How many of the three files are present. */
-    public int available() {
+    /** How many of the three sounds have been replaced by imported files. */
+    public int imported() {
         int n = 0;
-        for (String f : FILES) if (new File(dir, f).isFile()) n++;
+        for (int i = 0; i < FILES.length; i++) if (isImported(i)) n++;
         return n;
     }
 
-    public boolean has(int i) {
+    public boolean isImported(int i) {
         return new File(dir, FILES[i]).isFile();
+    }
+
+    /** Delete imported files so the built-in sounds play again. */
+    public void resetToBuiltIn() {
+        for (String f : FILES) {
+            //noinspection ResultOfMethodCallIgnored
+            new File(dir, f).delete();
+        }
     }
 
     /** Called (on the main thread) when a file finishes loading or fails to decode. */
@@ -107,10 +119,10 @@ public final class Sfx {
     public String describe() {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < FILES.length; i++) {
-            String st;
-            if (!has(i)) st = "not added";
-            else if (!enabled) st = "added";
-            else st = state[i] == 1 ? "ready" : state[i] == -1 ? "can't be played (not a valid WAV?)" : "loading…";
+            String st = isImported(i) ? "imported" : "built-in";
+            if (enabled) {
+                st += state[i] == 1 ? ", ready" : state[i] == -1 ? ", can't be played (not a valid WAV?)" : ", loading…";
+            }
             sb.append(i == 0 ? "" : "\n").append(FILES[i]).append(": ").append(st);
         }
         return sb.toString();
