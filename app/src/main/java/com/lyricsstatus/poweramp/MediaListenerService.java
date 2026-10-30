@@ -58,9 +58,13 @@ public final class MediaListenerService extends NotificationListenerService {
      * Battery: drop the system's binding so Android can stop our process while nothing plays.
      * The listener stays enabled; {@link #wake} brings it back.
      */
+    /** True while we unbound on purpose (idle sleep / disabled); otherwise a disconnect is Android's doing. */
+    private static boolean sleeping;
+
     static void sleep() {
         MediaListenerService s = current;
         if (s == null) return;
+        sleeping = true;
         Log.i(App.TAG, "sleeping until playback starts");
         try {
             s.requestUnbind();
@@ -71,6 +75,7 @@ public final class MediaListenerService extends NotificationListenerService {
 
     /** Ask the system to bind the listener again (no-op without notification access). */
     static void wake(android.content.Context c) {
+        sleeping = false;
         if (current != null) return;
         try {
             NotificationListenerService.requestRebind(new ComponentName(c, MediaListenerService.class));
@@ -112,6 +117,14 @@ public final class MediaListenerService extends NotificationListenerService {
         detach();
         if (current == this) current = null;
         App.get().mediaSessionActive = false;
+        // Android sometimes drops the binding on its own; reconnect instead of waiting for the app to be opened
+        if (!sleeping && App.get().settings().enabled) {
+            try {
+                requestRebind(new ComponentName(this, MediaListenerService.class));
+            } catch (Exception e) {
+                Log.w(App.TAG, "rebind failed", e);
+            }
+        }
     }
 
     private void onSessions(List<MediaController> sessions) {

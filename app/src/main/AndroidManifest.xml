@@ -12,6 +12,11 @@
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Keep updating while music plays: foreground service + CPU awake (only during playback) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Android 11+ package visibility: talk to Poweramp -->
     <queries>
@@ -59,6 +64,15 @@
             <meta-data
                 android:name="android.service.notification.default_filter_types"
                 android:value="ongoing" />
+        </service>
+
+        <service
+            android:name=".KeepAliveService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's Discord status in sync with the lyrics of the music playing in another app" />
         </service>
 
         <!-- Poweramp track/status broadcasts (explicit versions reach background apps) -->

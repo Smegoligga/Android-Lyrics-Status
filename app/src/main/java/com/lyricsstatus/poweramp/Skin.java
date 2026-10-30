@@ -110,6 +110,9 @@ public abstract class Skin {
         return unit == null || unit.isEmpty() ? String.valueOf(v) : v + " " + unit;
     }
 
+    /** Single choice from a few options (radio buttons); calls {@code onPick} with the chosen index. */
+    public abstract View choice(String title, String[] options, int selected, java.util.function.IntConsumer onPick);
+
     /** Theme chooser in this skin's style; calls {@code onPick} with a theme id. */
     public abstract View themePicker(String current, Consumer<String> onPick);
 

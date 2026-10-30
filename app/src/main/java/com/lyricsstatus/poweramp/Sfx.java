@@ -31,6 +31,15 @@ public final class Sfx {
     public static final String[] FILES = {"buttonrollover.wav", "buttonclick.wav", "buttonclickrelease.wav"};
     private static final int ROLLOVER = 0, CLICK = 1, RELEASE = 2;
 
+    /**
+     * Control kinds, so different controls sound different on a touchscreen (where hover never happens):
+     * BUTTON  click on press, release on lift
+     * TOGGLE  click on press only (checkboxes, radio buttons)
+     * MENU    rollover on press, release on lift (main-menu items)
+     * CLOSE   release on lift only (window x box, small captions)
+     */
+    public static final int BUTTON = 0, TOGGLE = 1, MENU = 2, CLOSE = 3;
+
     /** Built-in sounds, same order as FILES. */
     private static final int[] RAW = {R.raw.buttonrollover, R.raw.buttonclick, R.raw.buttonclickrelease};
 
@@ -137,15 +146,31 @@ public final class Sfx {
         play(RELEASE);
     }
 
-    /** Hook a clickable view up like sfx.wire() does on the site. */
-    @SuppressLint("ClickableViewAccessibility")
+    /** Hook a clickable view up like sfx.wire() does on the site, as a button. */
     public void wire(View v) {
+        wire(v, BUTTON);
+    }
+
+    /** Rollover tick while dragging a slider, at most every 80 ms. */
+    public void tick() {
+        long now = SystemClock.uptimeMillis();
+        if (now - lastRoll >= 80) {
+            lastRoll = now;
+            play(ROLLOVER);
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    public void wire(View v, int kind) {
+        final int down = kind == BUTTON || kind == TOGGLE ? CLICK : kind == MENU ? ROLLOVER : -1;
+        final int up = kind == BUTTON || kind == MENU || kind == CLOSE ? RELEASE : -1;
         v.setOnTouchListener((view, e) -> {
-            if (e.getActionMasked() == MotionEvent.ACTION_DOWN) play(CLICK);
-            else if (e.getActionMasked() == MotionEvent.ACTION_UP) {
+            if (e.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                if (down >= 0) play(down);
+            } else if (up >= 0 && e.getActionMasked() == MotionEvent.ACTION_UP) {
                 // release only for a real click (finger still on the control)
                 if (e.getX() >= 0 && e.getY() >= 0 && e.getX() <= view.getWidth() && e.getY() <= view.getHeight()) {
-                    play(RELEASE);
+                    play(up);
                 }
             }
             return false; // let the view handle the click normally

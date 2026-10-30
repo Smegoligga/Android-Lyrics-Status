@@ -152,6 +152,7 @@ public final class App extends Application {
         prefs.save(settings);
         engine.setSettings(settings);
         MediaListenerService.refreshController();
+        keepAlive(engine.state().playing);
         if (!settings.enabled) {
             cancelSleep();
             MediaListenerService.sleep();
@@ -182,11 +183,28 @@ public final class App extends Application {
      * Only possible when following Poweramp only, since other players can't wake us.
      */
     void onPlaybackActivity(boolean playing) {
+        keepAlive(playing);
         if (playing || !canSleep()) {
             cancelSleep();
         } else if (!sleepScheduled) {
             sleepScheduled = true;
             main.postDelayed(sleepRunnable, settings.enabled ? SLEEP_AFTER_IDLE_MS : 0);
+        }
+    }
+
+    /** Hold off Android's background freezing/CPU sleep only while music plays (plus the pause grace time). */
+    private final Runnable stopKeepAlive = () -> KeepAliveService.stop(this);
+
+    private void keepAlive(boolean playing) {
+        main.removeCallbacks(stopKeepAlive);
+        if (playing && settings.enabled && !settings.token.isEmpty() && settings.keepAliveMode > 0) {
+            KeepAliveService.start(this, settings.keepAliveMode == 2);
+        } else if (settings.keepAliveMode == 0) {
+            KeepAliveService.stop(this);
+        } else {
+            // keep running long enough to send the "restore my status" request after pausing
+            long grace = settings.enabled ? Math.max(0, settings.pauseClearSeconds) * 1000L + 10_000 : 0;
+            main.postDelayed(stopKeepAlive, grace);
         }
     }
 

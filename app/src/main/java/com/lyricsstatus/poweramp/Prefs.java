@@ -40,6 +40,7 @@ public final class Prefs implements StatusSender.Store {
         s.statusExpirySeconds = sp.getInt("statusExpirySeconds", d.statusExpirySeconds);
         s.minUpdateSeconds = sp.getInt("minUpdateSeconds", d.minUpdateSeconds);
         s.mergeLines = sp.getBoolean("mergeLines", d.mergeLines);
+        s.keepAliveMode = sp.getInt("keepAliveMode", d.keepAliveMode);
         s.theme = sp.getString("theme", d.theme);
         s.menuSounds = sp.getBoolean("menuSounds", d.menuSounds);
         s.censor = sp.getBoolean("censor", d.censor);
@@ -73,6 +74,7 @@ public final class Prefs implements StatusSender.Store {
                 .putInt("statusExpirySeconds", s.statusExpirySeconds)
                 .putInt("minUpdateSeconds", s.minUpdateSeconds)
                 .putBoolean("mergeLines", s.mergeLines)
+                .putInt("keepAliveMode", s.keepAliveMode)
                 .putString("theme", s.theme)
                 .putBoolean("menuSounds", s.menuSounds)
                 .putBoolean("censor", s.censor)

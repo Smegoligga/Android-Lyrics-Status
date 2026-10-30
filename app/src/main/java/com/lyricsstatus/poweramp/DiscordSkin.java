@@ -252,6 +252,34 @@ public final class DiscordSkin extends Skin {
     }
 
     @Override
+    public View choice(String title, String[] options, int selected, IntConsumer onPick) {
+        // Discord settings radio list: title, then rows with a blurple radio
+        LinearLayout l = vertical();
+        l.setPadding(0, dp(12), 0, dp(8));
+        TextView t = text(title, 16, false);
+        t.setTypeface(medium);
+        t.setTextColor(header);
+        l.addView(t);
+        android.widget.RadioGroup g = new android.widget.RadioGroup(a);
+        for (int i = 0; i < options.length; i++) {
+            final int idx = i;
+            android.widget.RadioButton r = new android.widget.RadioButton(a);
+            r.setId(View.generateViewId());
+            r.setText(options[i]);
+            r.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            r.setTextColor(text);
+            r.setButtonTintList(new ColorStateList(new int[][]{{android.R.attr.state_checked}, {}},
+                    new int[]{BLURPLE, muted}));
+            r.setPadding(dp(8), dp(6), 0, dp(6));
+            r.setChecked(i == selected);
+            r.setOnClickListener(v -> onPick.accept(idx));
+            g.addView(r);
+        }
+        l.addView(g);
+        return l;
+    }
+
+    @Override
     public View themePicker(String current, Consumer<String> onPick) {
         // Discord's Appearance picker: round swatches, selected one ringed in blurple with a check badge
         LinearLayout row = new LinearLayout(a);

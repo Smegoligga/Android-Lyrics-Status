@@ -115,7 +115,7 @@ public final class CsSkin extends Skin {
             mi.setShadowLayer(1, dp(1), dp(1), 0x99000000);
             mi.setPadding(0, dp(3), dp(24), dp(3));
             mi.setOnClickListener(v -> onPick.accept(idx));
-            sfx.wire(mi);
+            sfx.wire(mi, Sfx.MENU);
             if (idx >= 0) menuItems.add(mi);
             l.addView(mi, wrap());
         }
@@ -157,7 +157,7 @@ public final class CsSkin extends Skin {
             body.setVisibility(body.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE);
             front(index);
         });
-        sfx.wire(x);
+        sfx.wire(x, Sfx.CLOSE);
         bar.addView(x, new LinearLayout.LayoutParams(dp(18), dp(16)));
         bar.setOnClickListener(v -> front(index));
 
@@ -242,7 +242,7 @@ public final class CsSkin extends Skin {
         cb.setMinHeight(dp(24));
         cb.setChecked(checked);
         cb.setOnCheckedChangeListener((v, on) -> onChange.accept(on));
-        sfx.wire(cb);
+        sfx.wire(cb, Sfx.TOGGLE);
         l.addView(cb, wrap());
         if (desc != null) {
             TextView d = text(desc, 12, false);
@@ -299,7 +299,10 @@ public final class CsSkin extends Skin {
         sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             public void onProgressChanged(SeekBar s, int p, boolean u) {
                 out.setText(fmt(p, unit));
-                if (u) onChange.accept(p);
+                if (u) {
+                    sfx.tick();
+                    onChange.accept(p);
+                }
             }
 
             public void onStartTrackingTouch(SeekBar s) {}
@@ -320,10 +323,40 @@ public final class CsSkin extends Skin {
                 sb.setProgress(mark);
                 onChange.accept(mark);
             });
-            sfx.wire(cap);
+            sfx.wire(cap, Sfx.CLOSE);
             outer.addView(cap);
         }
         return outer;
+    }
+
+    @Override
+    public View choice(String title, String[] options, int selected, IntConsumer onPick) {
+        LinearLayout l = vertical();
+        l.setPadding(0, dp(6), 0, dp(4));
+        l.addView(text(title, FS, false));
+        RadioGroup g = new RadioGroup(a);
+        for (int i = 0; i < options.length; i++) {
+            final int idx = i;
+            RadioButton r = new RadioButton(a);
+            r.setId(View.generateViewId());
+            r.setButtonDrawable(radioDrawable());
+            r.setText(options[i]);
+            r.setTypeface(font);
+            r.setTextSize(TypedValue.COMPLEX_UNIT_SP, FS);
+            r.setTextColor(TEXT);
+            r.setPadding(dp(8), 0, 0, 0);
+            r.setMinHeight(dp(24));
+            r.setChecked(i == selected);
+            r.setOnClickListener(v -> onPick.accept(idx));
+            sfx.wire(r, Sfx.TOGGLE);
+            RadioGroup.LayoutParams lp = new RadioGroup.LayoutParams(-2, -2);
+            lp.leftMargin = dp(8);
+            lp.topMargin = dp(4);
+            lp.bottomMargin = dp(4);
+            g.addView(r, lp);
+        }
+        l.addView(g);
+        return l;
     }
 
     @Override
@@ -343,7 +376,7 @@ public final class CsSkin extends Skin {
             r.setMinHeight(dp(24));
             r.setChecked(t[0].equals(current));
             r.setOnClickListener(v -> onPick.accept(t[0]));
-            sfx.wire(r);
+            sfx.wire(r, Sfx.TOGGLE);
             RadioGroup.LayoutParams lp = new RadioGroup.LayoutParams(-2, -2);
             lp.topMargin = dp(6);
             lp.bottomMargin = dp(6);

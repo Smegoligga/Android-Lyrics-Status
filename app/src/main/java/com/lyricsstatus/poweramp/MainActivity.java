@@ -232,6 +232,17 @@ public final class MainActivity extends Activity {
                 x -> x.restoreStatus, (x, v) -> x.restoreStatus = v));
         gen.addView(number("Seconds paused before restoring", x -> String.valueOf(x.pauseClearSeconds),
                 (x, v) -> x.pauseClearSeconds = (int) clamp(v, 0, 3600)));
+        // order shown: Silent, Notification, Off  ->  stored as 1, 2, 0
+        final int[] modes = {1, 2, 0};
+        int cur = s.keepAliveMode == 2 ? 1 : s.keepAliveMode == 0 ? 2 : 0;
+        gen.addView(skin.choice("Keep running while music plays", new String[]{
+                "Silent (recommended): keeps updating, no notification",
+                "Notification: most reliable, shows a small notification",
+                "Off: saves the most battery, may stop until you open the app"}, cur, i -> {
+            com.lyricsstatus.poweramp.core.Settings ns = app.settings();
+            ns.keepAliveMode = modes[i];
+            app.updateSettings(ns);
+        }));
 
         // ---- status format
         LinearLayout disp = group(3);

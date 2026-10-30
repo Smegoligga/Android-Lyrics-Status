@@ -39,6 +39,7 @@ To get your token: open discord.com/app in a browser on a computer, press F12, g
 | Status format | Timestamp, label, or your own template with placeholders like `{lyrics}`, `{song_name}`, `{song_author}` |
 | Lyrics delay | Minimum time between status changes. 3 s is recommended to avoid Discord rate limits |
 | Merge skipped lines | Shows lines skipped by the delay together instead of dropping them |
+| Keep running while music plays | Silent (default) keeps updating in the background without a notification. Notification is the most reliable. Off saves the most battery |
 | Only follow Poweramp | Ignore other apps and let the app sleep while Poweramp is idle |
 | Censor / word filter | Mask swears, slurs or your own words. Off by default |
 | Theme | Classic (Discord) or CS 1.6. CS 1.6 has optional menu sounds |
