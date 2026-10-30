@@ -11,38 +11,67 @@ import android.graphics.drawable.Drawable;
 import java.util.Random;
 
 /**
- * Colour themes for the app. Orange, Blue, Pink and Green are the banner themes from the Museum ticket app
- * (same background and bubble colours); Classic is the original Discord blurple.
+ * App colour themes.
+ *
+ * Classic: Discord blurple accents on the system light/dark background.
+ * CS 1.6: the Counter-Strike 1.6 / classic Steam VGUI look: olive-green panels, mustard-yellow headings,
+ * square corners and bevelled 3D borders. It always uses its own dark surfaces, whatever the system mode.
  */
 public final class Theme {
     public final String id;
     public final String name;
-    /** Banner / accent colour. */
+    /** Accent colour (switches, buttons, highlights). */
     public final int bg;
-    /** Translucent bubble colour drawn over the banner. */
-    public final int bubble;
-    /** Text colour on the banner and on accent buttons. */
+    /** Text colour on the accent / banner. */
     public final int onBg;
+    /** Translucent bubble colour for the Classic banner. */
+    public final int bubble;
 
-    private Theme(String id, String name, int bg, int bubble, int onBg) {
+    /** Full-surface theme: 0 means "use the system colours". */
+    public final int window, panel, text, heading, field;
+    /** Bevel edges for retro panels and buttons; 0 = flat with rounded corners. */
+    public final int bevelLight, bevelDark;
+
+    private Theme(String id, String name, int bg, int onBg, int bubble,
+                  int window, int panel, int text, int heading, int field, int bevelLight, int bevelDark) {
         this.id = id;
         this.name = name;
         this.bg = bg;
-        this.bubble = bubble;
         this.onBg = onBg;
+        this.bubble = bubble;
+        this.window = window;
+        this.panel = panel;
+        this.text = text;
+        this.heading = heading;
+        this.field = field;
+        this.bevelLight = bevelLight;
+        this.bevelDark = bevelDark;
     }
 
-    public static final Theme[] ALL = {
-            new Theme("classic", "Classic", 0xFF5865F2, rgba(200, 205, 255, .45f), 0xFFFFFFFF),
-            new Theme("orange", "Orange", 0xFFD85A30, rgba(250, 170, 120, .45f), 0xFF000000),
-            new Theme("blue", "Blue", 0xFF3E9BE0, rgba(210, 235, 255, .50f), 0xFFFFFFFF),
-            new Theme("pink", "Pink", 0xFFE0218A, rgba(255, 170, 210, .50f), 0xFFFFFFFF),
-            new Theme("green", "Green", 0xFF2E9E5B, rgba(175, 230, 195, .55f), 0xFFFFFFFF),
-    };
+    public static final Theme CLASSIC = new Theme("classic", "Classic",
+            0xFF5865F2, 0xFFFFFFFF, rgba(200, 205, 255, .45f),
+            0, 0, 0, 0, 0, 0, 0);
+
+    /** Colours from the CS 1.6 / 2003 Steam VGUI skin. */
+    public static final Theme CS16 = new Theme("cs16", "CS 1.6",
+            0xFF958831, 0xFF1E2118, 0,
+            0xFF4C5844,   // window: olive green
+            0xFF3E4637,   // panels: darker olive
+            0xFFD8DED3,   // text: pale grey-green
+            0xFFC4B550,   // headings: mustard yellow
+            0xFF3E4637,   // text fields
+            0xFF8C9284,   // bevel light edge
+            0xFF292C21);  // bevel dark edge
+
+    public static final Theme[] ALL = {CLASSIC, CS16};
 
     public static Theme byId(String id) {
         for (Theme t : ALL) if (t.id.equals(id)) return t;
-        return ALL[0];
+        return CLASSIC;
+    }
+
+    public boolean retro() {
+        return bevelLight != 0;
     }
 
     /** Accent at low opacity, for card backgrounds that work in light and dark mode. */
@@ -55,10 +84,46 @@ public final class Theme {
     }
 
     /**
-     * Rounded banner with translucent bubbles, like the ticket app's time banner (static, so it costs nothing).
-     * A fixed seed keeps the bubbles in the same place every time the screen opens.
+     * VGUI-style bevelled rectangle: light top/left edge and dark bottom/right edge (raised), or the reverse
+     * (sunken, used for text fields and pressed buttons).
      */
+    public Drawable bevel(int fill, boolean sunken, float edgePx) {
+        final int tl = sunken ? bevelDark : bevelLight;
+        final int br = sunken ? bevelLight : bevelDark;
+        return new Drawable() {
+            private final Paint p = new Paint();
+
+            @Override
+            public void draw(Canvas c) {
+                android.graphics.Rect b = getBounds();
+                float e = Math.max(1, edgePx);
+                p.setColor(fill);
+                c.drawRect(b, p);
+                p.setColor(tl);
+                c.drawRect(b.left, b.top, b.right, b.top + e, p);
+                c.drawRect(b.left, b.top, b.left + e, b.bottom, p);
+                p.setColor(br);
+                c.drawRect(b.left, b.bottom - e, b.right, b.bottom, p);
+                c.drawRect(b.right - e, b.top, b.right, b.bottom, p);
+            }
+
+            @Override
+            public void setAlpha(int a) {}
+
+            @Override
+            public void setColorFilter(ColorFilter f) {}
+
+            @Override
+            @SuppressWarnings("deprecation")
+            public int getOpacity() {
+                return PixelFormat.OPAQUE;
+            }
+        };
+    }
+
+    /** Header banner: Classic gets the blurple banner with bubbles; CS 1.6 a raised VGUI title panel. */
     public Drawable banner(float radiusPx, float density) {
+        if (retro()) return bevel(panel, false, density);
         return new Drawable() {
             private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
             private final Path clip = new Path();
@@ -91,6 +156,7 @@ public final class Theme {
             public void setColorFilter(ColorFilter f) {}
 
             @Override
+            @SuppressWarnings("deprecation")
             public int getOpacity() {
                 return PixelFormat.TRANSLUCENT;
             }

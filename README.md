@@ -163,15 +163,12 @@ The app is built to stay out of the way.
 
 ### 6. Theme
 
-At the bottom of the app, pick a colour theme. It changes the header banner, section titles, cards, switches and buttons. Light and dark mode still follow your phone.
+At the bottom of the app, pick a theme:
 
-| Theme | Colour |
+| Theme | Look |
 |---|---|
-| Classic | ![#5865F2](https://placehold.co/14x14/5865F2/5865F2.png) `#5865F2` Discord blurple |
-| Orange | ![#D85A30](https://placehold.co/14x14/D85A30/D85A30.png) `#D85A30` |
-| Blue | ![#3E9BE0](https://placehold.co/14x14/3E9BE0/3E9BE0.png) `#3E9BE0` |
-| Pink | ![#E0218A](https://placehold.co/14x14/E0218A/E0218A.png) `#E0218A` |
-| Green | ![#2E9E5B](https://placehold.co/14x14/2E9E5B/2E9E5B.png) `#2E9E5B` |
+| **Classic** | ![#5865F2](https://placehold.co/14x14/5865F2/5865F2.png) Discord blurple accents. Follows your phone's light/dark mode. |
+| **CS 1.6** | ![#4C5844](https://placehold.co/14x14/4C5844/4C5844.png) ![#C4B550](https://placehold.co/14x14/C4B550/C4B550.png) The Counter-Strike 1.6 / classic Steam VGUI look: olive-green panels, mustard-yellow headings, square corners and bevelled 3D buttons and boxes. |
 
 ## 🛠️ Building from source
 

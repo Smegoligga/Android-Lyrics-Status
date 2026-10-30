@@ -65,6 +65,7 @@ public final class MainActivity extends Activity {
         root.setPadding(p, p, p, dp(32));
         sv.addView(root);
         setContentView(sv);
+        applyWindowTheme(sv);
         if (Build.VERSION.SDK_INT >= 35) {
             sv.setOnApplyWindowInsetsListener((v, insets) -> {
                 android.graphics.Insets i = insets.getInsets(android.view.WindowInsets.Type.systemBars()
@@ -99,10 +100,10 @@ public final class MainActivity extends Activity {
         header.setPadding(dp(18), dp(20), dp(18), dp(20));
         header.setBackground(theme.banner(dp(18), getResources().getDisplayMetrics().density));
         TextView title = text("🎶 Android Lyrics Status", 22, true);
-        title.setTextColor(theme.onBg);
+        title.setTextColor(theme.retro() ? theme.heading : theme.onBg);
         header.addView(title);
         TextView sub = text("Your Discord status follows the lyrics of whatever you're playing. Works with any music app; Poweramp is fully supported with extra features.", 14, false);
-        sub.setTextColor(theme.onBg);
+        sub.setTextColor(theme.retro() ? theme.text : theme.onBg);
         sub.setAlpha(0.85f);
         header.addView(sub);
         root.addView(header);
@@ -113,7 +114,7 @@ public final class MainActivity extends Activity {
         lyricsInfo = text("", 13, false);
         currentLine = text("", 15, false);
         currentLine.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.ITALIC));
-        currentLine.setTextColor(theme.bg);
+        currentLine.setTextColor(theme.retro() ? theme.heading : theme.bg);
         discordInfo = text("", 13, false);
         errorView = text("", 13, true);
         errorView.setTextColor(0xFFE5484D);
@@ -143,6 +144,7 @@ public final class MainActivity extends Activity {
         tokenState = label("Discord token");
         setup.addView(tokenState);
         EditText token = new EditText(this);
+        styleEdit(token);
         token.setHint("Paste your Discord token");
         token.setSingleLine(true);
         token.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -258,8 +260,8 @@ public final class MainActivity extends Activity {
         for (Theme t : Theme.ALL) chips.addView(themeChip(t), new LinearLayout.LayoutParams(0,
                 ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         tc.addView(chips);
-        tc.addView(hint("Orange, Blue, Pink and Green are the banner colours from your Museum ticket app. "
-                + "Light and dark mode follow your phone."));
+        tc.addView(hint("Classic follows your phone's light/dark mode. CS 1.6 is the Counter-Strike 1.6 / "
+                + "classic Steam look: olive panels, yellow headings and bevelled edges."));
         root.addView(tc);
 
         // footer
@@ -270,6 +272,7 @@ public final class MainActivity extends Activity {
                 + "Changing your status with a user token is against Discord's Terms of Service, the same as with the "
                 + "original LyricsStatus. Use at your own risk.", android.text.Html.FROM_HTML_MODE_LEGACY));
         foot.setMovementMethod(LinkMovementMethod.getInstance());
+        if (theme.retro()) foot.setLinkTextColor(theme.heading);
         foot.setPadding(0, dp(24), 0, 0);
         root.addView(foot);
     }
@@ -401,8 +404,10 @@ public final class MainActivity extends Activity {
         l.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         Switch sw = new Switch(this);
         int[][] states = {{android.R.attr.state_checked}, {}};
-        sw.setThumbTintList(new android.content.res.ColorStateList(states, new int[]{theme.bg, 0xFFBDBDBD}));
-        sw.setTrackTintList(new android.content.res.ColorStateList(states, new int[]{theme.tint(0x80), 0x55808080}));
+        sw.setThumbTintList(new android.content.res.ColorStateList(states,
+                new int[]{theme.retro() ? theme.heading : theme.bg, theme.retro() ? theme.bevelLight : 0xFFBDBDBD}));
+        sw.setTrackTintList(new android.content.res.ColorStateList(states,
+                new int[]{theme.tint(theme.retro() ? 0xAA : 0x80), theme.retro() ? 0xAA292C21 : 0x55808080}));
         sw.setChecked(get.apply(app.settings()));
         sw.setOnCheckedChangeListener((b, v) -> {
             com.lyricsstatus.poweramp.core.Settings s = app.settings();
@@ -422,6 +427,7 @@ public final class MainActivity extends Activity {
         t.setAlpha(0.8f);
         l.addView(t);
         EditText e = new EditText(this);
+        styleEdit(e);
         e.setSingleLine(true);
         e.setText(get.apply(app.settings()));
         e.addTextChangedListener(debounced(v -> {
@@ -440,6 +446,7 @@ public final class MainActivity extends Activity {
         TextView t = text(title, 15, false);
         l.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         EditText e = new EditText(this);
+        styleEdit(e);
         e.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_SIGNED);
         e.setText(get.apply(app.settings()));
         e.setMinWidth(dp(80));
@@ -484,12 +491,17 @@ public final class MainActivity extends Activity {
         l.setGravity(Gravity.CENTER_HORIZONTAL);
         l.setPadding(0, dp(4), 0, dp(4));
         View dot = new View(this);
-        GradientDrawable d = new GradientDrawable();
-        d.setShape(GradientDrawable.OVAL);
-        d.setColor(t.bg);
         boolean selected = t.id.equals(theme.id);
-        if (selected) d.setStroke(dp(3), t.tint(0x70));
-        dot.setBackground(d);
+        if (t.retro()) {
+            // CS 1.6: a raised olive VGUI square
+            dot.setBackground(t.bevel(t.window, false, dp(2)));
+        } else {
+            GradientDrawable d = new GradientDrawable();
+            d.setShape(GradientDrawable.OVAL);
+            d.setColor(t.bg);
+            if (selected) d.setStroke(dp(3), t.tint(0x70));
+            dot.setBackground(d);
+        }
         dot.setForeground(selected ? checkMark(t) : null);
         l.addView(dot, new LinearLayout.LayoutParams(dp(selected ? 46 : 40), dp(selected ? 46 : 40)));
         TextView name = text(t.name, 12, selected);
@@ -511,7 +523,7 @@ public final class MainActivity extends Activity {
             @Override
             public void draw(android.graphics.Canvas c) {
                 android.graphics.Rect b = getBounds();
-                p.setColor(t.onBg);
+                p.setColor(t.retro() ? t.heading : t.onBg);
                 p.setStyle(android.graphics.Paint.Style.STROKE);
                 p.setStrokeWidth(dp(3));
                 p.setStrokeCap(android.graphics.Paint.Cap.ROUND);
@@ -537,9 +549,39 @@ public final class MainActivity extends Activity {
         };
     }
 
+    /** Full-surface themes (CS 1.6) paint the window and switch the status bar to light icons. */
+    @SuppressWarnings("deprecation")
+    private void applyWindowTheme(View content) {
+        if (theme.window == 0) return;
+        content.setBackgroundColor(theme.window);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(theme.window));
+        getWindow().setStatusBarColor(theme.window);
+        getWindow().setNavigationBarColor(theme.window);
+        View decor = getWindow().getDecorView();
+        decor.setSystemUiVisibility(decor.getSystemUiVisibility()
+                & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR & ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        if (Build.VERSION.SDK_INT >= 30 && getWindow().getInsetsController() != null) {
+            getWindow().getInsetsController().setSystemBarsAppearance(0,
+                    android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                            | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);
+        }
+    }
+
+    /** Retro themes get sunken VGUI text boxes. */
+    private void styleEdit(EditText e) {
+        if (!theme.retro()) return;
+        e.setBackground(theme.bevel(theme.field, true, dp(1)));
+        e.setPadding(dp(8), dp(8), dp(8), dp(8));
+        e.setTextColor(theme.text);
+        e.setHintTextColor((theme.text & 0x00FFFFFF) | 0x80000000);
+        e.setBackgroundTintList(null);
+        if (Build.VERSION.SDK_INT >= 29) e.setTextCursorDrawable(null);
+        e.setHighlightColor((theme.heading & 0x00FFFFFF) | 0x66000000);
+    }
+
     private void section(String title) {
         TextView t = text(title.toUpperCase(), 12, true);
-        t.setTextColor(theme.bg);
+        t.setTextColor(theme.retro() ? theme.heading : theme.bg);
         t.setLetterSpacing(0.08f);
         t.setPadding(dp(4), dp(20), 0, dp(6));
         root.addView(t);
@@ -550,10 +592,14 @@ public final class MainActivity extends Activity {
         c.setOrientation(LinearLayout.VERTICAL);
         int p = dp(14);
         c.setPadding(p, p, p, p);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(theme.tint(0x1A));
-        bg.setCornerRadius(dp(14));
-        c.setBackground(bg);
+        if (theme.retro()) {
+            c.setBackground(theme.bevel(theme.panel, false, dp(1)));
+        } else {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(theme.tint(0x1A));
+            bg.setCornerRadius(dp(14));
+            c.setBackground(bg);
+        }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.topMargin = dp(10);
@@ -572,8 +618,21 @@ public final class MainActivity extends Activity {
         Button b = new Button(this);
         b.setText(label);
         b.setAllCaps(false);
-        b.setTextColor(theme.onBg);
-        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(theme.bg));
+        if (theme.retro()) {
+            // VGUI button: raised bevel, sunken while pressed
+            android.graphics.drawable.StateListDrawable sl = new android.graphics.drawable.StateListDrawable();
+            sl.addState(new int[]{android.R.attr.state_pressed}, theme.bevel(theme.panel, true, dp(1)));
+            sl.addState(new int[]{}, theme.bevel(theme.window, false, dp(1)));
+            b.setBackground(sl);
+            b.setTextColor(theme.text);
+            b.setStateListAnimator(null);
+            b.setPadding(dp(14), dp(8), dp(14), dp(8));
+            b.setMinHeight(0);
+            b.setMinimumHeight(dp(40));
+        } else {
+            b.setTextColor(theme.onBg);
+            b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(theme.bg));
+        }
         b.setOnClickListener(click);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -599,6 +658,7 @@ public final class MainActivity extends Activity {
         t.setText(s);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
+        if (theme.text != 0) t.setTextColor(theme.text);
         t.setEllipsize(TextUtils.TruncateAt.END);
         t.setPadding(0, dp(2), 0, dp(2));
         return t;
