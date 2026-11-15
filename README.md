@@ -1,15 +1,15 @@
-# Android Lyrics Status
+# LRCStatus
 
 Shows the synced lyrics of whatever you're playing on Android as your Discord status. Works with any music app; Poweramp is fully supported.
 
 An Android port of [LyricsStatus](https://github.com/OvalQuilter/lyrics-status) by OvalQuilter.
 
-[![Build](https://github.com/Smegoligga/Android-Lyrics-Status/actions/workflows/build.yml/badge.svg)](https://github.com/Smegoligga/Android-Lyrics-Status/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/Smegoligga/Android-Lyrics-Status?include_prereleases&label=release)](https://github.com/Smegoligga/Android-Lyrics-Status/releases)
+[![Build](https://github.com/Smegoligga/LRCStatus/actions/workflows/build.yml/badge.svg)](https://github.com/Smegoligga/LRCStatus/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/Smegoligga/LRCStatus?include_prereleases&label=release)](https://github.com/Smegoligga/LRCStatus/releases)
 
 ## Features
 
-- Lyrics from `.lrc` files, tags embedded in your music, or [LRCLIB](https://lrclib.net), plus manual search
+- Lyrics from `.lrc` files, tags embedded in your music, or [LRCLIB](https://lrclib.net), plus manual search that also covers Genius (plain lyrics)
 - Millisecond-accurate timing
 - Same status format and placeholders as the original
 - Restores your normal status when you pause
@@ -19,7 +19,9 @@ An Android port of [LyricsStatus](https://github.com/OvalQuilter/lyrics-status) 
 
 ## Install
 
-Download the APK from [Releases](https://github.com/Smegoligga/Android-Lyrics-Status/releases) and open it on your phone. Needs Android 8.0+.
+Download the APK from [Releases](https://github.com/Smegoligga/LRCStatus/releases) and open it on your phone. Needs Android 8.0+.
+
+To get updates automatically, add `https://github.com/Smegoligga/LRCStatus` to [Obtainium](https://github.com/ImranR98/Obtainium) (turn on "Include prereleases"), or tap **More → Add to Obtainium** in the app. The app also checks for new versions itself (More → Look for updates).
 
 ## Setup
 

@@ -127,11 +127,34 @@ public final class LyricsRepository {
                 cache.put(t, r.lyrics);
                 return r.lyrics.raw;
             }
-            if (r.plainFallback == null) cache.putMiss(t, r.instrumental);
-            return r.plainFallback;
+            if (r.plainFallback != null) return r.plainFallback;
+            if (!r.instrumental && s.useGenius) {
+                String g = fromGenius(t);
+                if (g != null) return g;
+            }
+            cache.putMiss(t, r.instrumental);
+            return null;
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    /** Plain lyrics from Genius for this song, only when the title and artist clearly match. Blocking. */
+    static String fromGenius(Track t) {
+        try {
+            String title = LyricsSearch.key(LyricsSearch.cleanTitle(t.title));
+            String artist = LyricsSearch.key(LyricsSearch.cleanArtist(t.artist));
+            if (title.isEmpty()) return null;
+            for (GeniusClient.Hit h : GeniusClient.search(LyricsSearch.cleanTitle(t.title) + " " + LyricsSearch.cleanArtist(t.artist))) {
+                String ht = LyricsSearch.key(LyricsSearch.cleanTitle(h.title)), ha = LyricsSearch.key(h.artist);
+                boolean titleOk = ht.equals(title);
+                boolean artistOk = artist.isEmpty() || ha.equals(artist) || ha.contains(artist) || artist.contains(ha);
+                if (titleOk && artistOk) return GeniusClient.lyrics(h.url);
+            }
+        } catch (Exception ignored) {
+            // bot check, offline or no lyrics: Poweramp just shows nothing, as before
+        }
+        return null;
     }
 
     public LyricsCache cache() {
