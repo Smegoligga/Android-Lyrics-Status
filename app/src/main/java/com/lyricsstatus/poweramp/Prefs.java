@@ -48,6 +48,8 @@ public final class Prefs implements StatusSender.Store {
         s.customFilterOn = sp.getBoolean("customFilterOn", d.customFilterOn);
         s.customFilter = sp.getString("customFilter", d.customFilter);
         s.menuVolume = sp.getInt("menuVolume", d.menuVolume);
+        s.useGenius = sp.getBoolean("useGenius", d.useGenius);
+        s.updateFrequency = sp.getInt("updateFrequency", d.updateFrequency);
         return s;
     }
 
@@ -83,7 +85,36 @@ public final class Prefs implements StatusSender.Store {
                 .putBoolean("customFilterOn", s.customFilterOn)
                 .putString("customFilter", s.customFilter)
                 .putInt("menuVolume", s.menuVolume)
+                .putBoolean("useGenius", s.useGenius)
+                .putInt("updateFrequency", s.updateFrequency)
                 .apply();
+    }
+
+    // ---- app state that isn't a setting: update checks and the open tab
+
+    public long lastUpdateCheck() {
+        return sp.getLong("lastUpdateCheck", 0);
+    }
+
+    public void setLastUpdateCheck(long ms) {
+        sp.edit().putLong("lastUpdateCheck", ms).apply();
+    }
+
+    /** Version the user said "Later" to: its banner stays hidden until a newer one comes out. */
+    public String skippedVersion() {
+        return sp.getString("skippedVersion", "");
+    }
+
+    public void setSkippedVersion(String v) {
+        sp.edit().putString("skippedVersion", v).apply();
+    }
+
+    public int tab() {
+        return sp.getInt("tab", 0);
+    }
+
+    public void setTab(int i) {
+        sp.edit().putInt("tab", i).apply();
     }
 
     @Override

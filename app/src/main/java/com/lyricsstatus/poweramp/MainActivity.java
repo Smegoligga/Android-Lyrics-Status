@@ -28,6 +28,7 @@ import android.widget.Toast;
 import com.lyricsstatus.poweramp.core.DiscordClient;
 import com.lyricsstatus.poweramp.core.Engine;
 import com.lyricsstatus.poweramp.core.Formatter;
+import com.lyricsstatus.poweramp.core.UpdateCheck;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +51,12 @@ public final class MainActivity extends Activity {
     private ScrollView scroll;
     private LinearLayout root;
     private final List<View> anchors = new ArrayList<>();
+    /** Tab bar above the page; the page shows only the groups of the selected tab. */
+    private LinearLayout tabBar, updateBanner;
+    private final List<TextView> tabViews = new ArrayList<>();
+    private final List<View> tabLines = new ArrayList<>();
+    private int tab;
+    private TextView updateState;
     private TextView nowPlaying, lyricsInfo, currentLine, discordInfo, errorView;
     private TextView notifState, fileState, batteryState, tokenState, soundState;
     private Button resetSounds;
@@ -79,10 +86,23 @@ public final class MainActivity extends Activity {
         int p = skin.dp(16);
         root.setPadding(p, p, p, skin.dp(32));
         scroll.addView(root);
-        setContentView(scroll);
+        // tab bar and update banner stay put above the scrolling page
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        tabBar = new LinearLayout(this);
+        tabBar.setOrientation(LinearLayout.HORIZONTAL);
+        tabBar.setPadding(skin.dp(8), skin.dp(4), skin.dp(8), 0);
+        page.addView(tabBar, new LinearLayout.LayoutParams(-1, -2));
+        updateBanner = new LinearLayout(this);
+        updateBanner.setOrientation(LinearLayout.VERTICAL);
+        updateBanner.setPadding(skin.dp(16), skin.dp(8), skin.dp(16), 0);
+        updateBanner.setVisibility(View.GONE);
+        page.addView(updateBanner, new LinearLayout.LayoutParams(-1, -2));
+        page.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1f));
+        setContentView(page);
         skin.applyWindow(scroll, root);
         if (Build.VERSION.SDK_INT >= 35) {
-            scroll.setOnApplyWindowInsetsListener((v, insets) -> {
+            page.setOnApplyWindowInsetsListener((v, insets) -> {
                 android.graphics.Insets i = insets.getInsets(android.view.WindowInsets.Type.systemBars()
                         | android.view.WindowInsets.Type.displayCutout());
                 v.setPadding(i.left, i.top, i.right, i.bottom);
@@ -90,6 +110,8 @@ public final class MainActivity extends Activity {
             });
         }
         build();
+        buildTabs();
+        checkForUpdate(false);
     }
 
     @Override
@@ -115,18 +137,22 @@ public final class MainActivity extends Activity {
     // ------------------------------------------------------------------ layout
 
     private static final String[] GROUPS = {"Now Playing", "Setup", "General", "Status Format", "Lyrics Sources",
-            "Timing", "Battery", "Options"};
+            "Timing", "Battery", "Options", "Links & Updates"};
+    /** Tabs, and which tab each group above is shown in. */
+    private static final String[] TABS = {"Now", "Setup", "Status", "Lyrics", "More"};
+    private static final int[] TAB_OF_GROUP = {0, 1, 1, 2, 3, 2, 1, 4, 4};
+    private int footerIndex = -1;
 
     private LinearLayout group(int i) {
         int before = root.getChildCount();
-        String title = i == GROUPS.length - 1 && !skin.hasSounds() ? "Appearance" : GROUPS[i];
+        String title = i == 7 && !skin.hasSounds() ? "Appearance" : GROUPS[i];
         LinearLayout g = skin.group(root, title);
         anchors.add(root.getChildAt(before));
         return g;
     }
 
     private void build() {
-        root.addView(skin.header("Android Lyrics Status",
+        root.addView(skin.header("LRCStatus",
                 "Your Discord status follows the lyrics of whatever you're playing. Works with any music app; "
                         + "Poweramp is fully supported with extra features."));
 
@@ -139,9 +165,10 @@ public final class MainActivity extends Activity {
                 finishAndRemoveTask();
                 return;
             }
+            showTab(TAB_OF_GROUP[idx]);
             skin.focusGroup(idx);
             View target = anchors.get(idx);
-            scroll.post(() -> scroll.smoothScrollTo(0, target.getTop() - skin.dp(8)));
+            scroll.post(() -> scroll.smoothScrollTo(0, Math.max(0, target.getTop() - skin.dp(8))));
         });
         if (menu != null) root.addView(menu);
 
@@ -279,6 +306,9 @@ public final class MainActivity extends Activity {
                 x -> x.onlineWhenLocalUnsynced, (x, v) -> x.onlineWhenLocalUnsynced = v));
         src.addView(toggle("Act as Poweramp lyrics plugin", "Also show LRCLIB lyrics inside Poweramp when it has none",
                 x -> x.providePowerampLyrics, (x, v) -> x.providePowerampLyrics = v));
+        src.addView(toggle("Genius", "Also search Genius. Its lyrics aren't synced, so they can't drive your status "
+                + "line by line, but they show in Search lyrics and inside Poweramp when LRCLIB has nothing",
+                x -> x.useGenius, (x, v) -> x.useGenius = v));
 
         // ---- timing
         LinearLayout tim = group(5);
@@ -321,7 +351,31 @@ public final class MainActivity extends Activity {
         else opt.addView(skin.hint("Classic follows your phone's light/dark mode. CS 1.6 is the Counter-Strike 1.6 "
                 + "look from smegolas.com, with its menu sounds."));
 
+        // ---- links & updates
+        LinearLayout links = group(8);
+        LinearLayout linkRow = skin.row();
+        linkRow.addView(iconButton(R.drawable.ic_code, "GitHub", UpdateCheck.REPO_URL));
+        linkRow.addView(iconButton(R.drawable.ic_web, "smegolas.com", "https://smegolas.com"));
+        links.addView(linkRow);
+        links.addView(skin.hint("Version " + installedVersion() + ". Source code, releases and issues are on GitHub."));
+        updateState = skin.label("");
+        links.addView(updateState);
+        LinearLayout updBtns = skin.row();
+        updBtns.addView(skin.button("Check for updates now", true, v -> checkForUpdate(true)));
+        updBtns.addView(skin.button("Add to Obtainium", false, v -> addToObtainium()));
+        links.addView(updBtns);
+        String[] freq = {"Every time the app opens", "Once a day", "Once a week", "Never (only when I tap Check now)"};
+        links.addView(skin.choice("Look for updates", freq, Math.max(0, Math.min(3, s.updateFrequency)), i -> {
+            com.lyricsstatus.poweramp.core.Settings ns = app.settings();
+            ns.updateFrequency = i;
+            app.updateSettings(ns);
+        }));
+        links.addView(skin.hint("When a new version is out, a notice with a download button appears at the top of "
+                + "this screen. With Obtainium, updates install from the same GitHub releases (turn on "
+                + "\"Include prereleases\" for this app in Obtainium)."));
+
         // ---- footer
+        footerIndex = root.getChildCount();
         TextView foot = skin.hint("");
         foot.setText(android.text.Html.fromHtml("Based on <a href=\"https://github.com/OvalQuilter/lyrics-status\">LyricsStatus</a> "
                 + "by OvalQuilter. Lyrics from your files and <a href=\"https://lrclib.net\">LRCLIB</a>.<br><br>"
@@ -608,6 +662,155 @@ public final class MainActivity extends Activity {
 
     private static long clamp(long v, long lo, long hi) {
         return Math.max(lo, Math.min(hi, v));
+    }
+
+    // ------------------------------------------------------------------ tabs
+
+    private void buildTabs() {
+        for (int i = 0; i < TABS.length; i++) {
+            final int idx = i;
+            LinearLayout cell = new LinearLayout(this);
+            cell.setOrientation(LinearLayout.VERTICAL);
+            TextView t = skin.text(TABS[i], 14, true);
+            t.setGravity(Gravity.CENTER);
+            t.setSingleLine(true);
+            t.setPadding(0, skin.dp(10), 0, skin.dp(7));
+            cell.addView(t, new LinearLayout.LayoutParams(-1, -2));
+            View line = new View(this);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, skin.dp(3));
+            lp.leftMargin = lp.rightMargin = skin.dp(10);
+            cell.addView(line, lp);
+            cell.setOnClickListener(v -> {
+                showTab(idx);
+                scroll.scrollTo(0, 0);
+            });
+            cell.setContentDescription(TABS[i] + " tab");
+            sfx.wire(cell, Sfx.MENU);
+            tabBar.addView(cell, new LinearLayout.LayoutParams(0, -2, 1f));
+            tabViews.add(t);
+            tabLines.add(line);
+        }
+        showTab(Math.max(0, Math.min(TABS.length - 1, app.prefs().tab())));
+    }
+
+    /** Shows the groups of one tab. Everything above the first group (title, CS menu) belongs to "Now". */
+    private void showTab(int t) {
+        tab = t;
+        app.prefs().setTab(t);
+        int first = anchors.isEmpty() ? root.getChildCount() : root.indexOfChild(anchors.get(0));
+        int n = root.getChildCount();
+        for (int c = 0; c < n; c++) {
+            int owner;
+            if (c < first) owner = 0;
+            else if (footerIndex >= 0 && c >= footerIndex) owner = TABS.length - 1;
+            else {
+                int g = 0;
+                for (int i = 0; i < anchors.size(); i++) if (root.indexOfChild(anchors.get(i)) <= c) g = i;
+                owner = TAB_OF_GROUP[g];
+            }
+            root.getChildAt(c).setVisibility(owner == t ? View.VISIBLE : View.GONE);
+        }
+        int plain = skin.text("", 14, false).getCurrentTextColor();
+        for (int i = 0; i < tabViews.size(); i++) {
+            boolean on = i == t;
+            TextView v = tabViews.get(i);
+            v.setTextColor(on ? skin.highlight() : plain);
+            v.setAlpha(on ? 1f : 0.7f);
+            tabLines.get(i).setBackgroundColor(on ? skin.highlight() : 0x00000000);
+            ((View) v.getParent()).setSelected(on);
+        }
+    }
+
+    // ------------------------------------------------------------------ links and updates
+
+    private View iconButton(int icon, String label, String url) {
+        Button b = skin.button(label, false, v -> open(url));
+        android.graphics.drawable.Drawable d = getDrawable(icon);
+        if (d != null) {
+            d = d.mutate();
+            d.setTint(b.getCurrentTextColor());
+            int sz = skin.dp(18);
+            d.setBounds(0, 0, sz, sz);
+            b.setCompoundDrawables(d, null, null, null);
+            b.setCompoundDrawablePadding(skin.dp(6));
+        }
+        return b;
+    }
+
+    private void open(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            toast("No app can open " + url);
+        }
+    }
+
+    private String installedVersion() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
+    /** Opens Obtainium's "add app" screen for this repo; points to Obtainium itself when it isn't installed. */
+    private void addToObtainium() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("obtainium://add/" + UpdateCheck.REPO_URL)));
+        } catch (android.content.ActivityNotFoundException e) {
+            toast("Install Obtainium first, then tap this again");
+            open("https://github.com/ImranR98/Obtainium/releases");
+        }
+    }
+
+    /** On launch (when due) or by hand: look for a newer release and show the notice at the top. */
+    private void checkForUpdate(boolean byHand) {
+        com.lyricsstatus.poweramp.core.Settings s = app.settings();
+        long now = System.currentTimeMillis();
+        if (!byHand && !UpdateCheck.due(s.updateFrequency, app.prefs().lastUpdateCheck(), now)) return;
+        if (byHand && updateState != null) updateState.setText("Checking GitHub…");
+        final String mine = installedVersion();
+        app.io.execute(() -> {
+            UpdateCheck.Release r = null;
+            String err = null;
+            try {
+                r = UpdateCheck.latest();
+            } catch (Exception e) {
+                err = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            }
+            final UpdateCheck.Release fr = r;
+            final String fe = err;
+            app.main.post(() -> {
+                if (isFinishing()) return;
+                if (fe == null) app.prefs().setLastUpdateCheck(System.currentTimeMillis());
+                boolean newer = UpdateCheck.isNewer(fr, mine);
+                if (updateState != null) {
+                    updateState.setText(fe != null ? "Couldn't check for updates (" + fe + ")"
+                            : newer ? "Version " + fr.version + " is available" : "You have the newest version (" + mine + ")");
+                }
+                if (newer && (byHand || !fr.version.equals(app.prefs().skippedVersion()))) showUpdate(fr);
+            });
+        });
+    }
+
+    private void showUpdate(UpdateCheck.Release r) {
+        updateBanner.removeAllViews();
+        LinearLayout box = skin.box();
+        TextView t = skin.text("LRCStatus " + r.version + " is available", 15, true);
+        t.setTextColor(skin.highlight());
+        box.addView(t);
+        box.addView(skin.hint("You have " + installedVersion() + ". Download and open the APK to update; your "
+                + "settings stay."));
+        LinearLayout b = skin.row();
+        b.addView(skin.button("Download", true, v -> open(r.apkUrl != null ? r.apkUrl : r.pageUrl)));
+        b.addView(skin.button("What's new", false, v -> open(r.pageUrl)));
+        b.addView(skin.button("Later", false, v -> {
+            app.prefs().setSkippedVersion(r.version);
+            updateBanner.setVisibility(View.GONE);
+        }));
+        box.addView(b);
+        updateBanner.addView(box);
+        updateBanner.setVisibility(View.VISIBLE);
     }
 
     private void toast(String s) {

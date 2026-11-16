@@ -59,6 +59,10 @@ public final class Settings {
     public boolean customFilterOn = false;
     public String customFilter = "";
     public int menuVolume = 70;
+    /** Also look on Genius (plain lyrics only): in Search lyrics, and for Poweramp when LRCLIB has nothing. */
+    public boolean useGenius = true;
+    /** When to look for a new version on launch: see {@link UpdateCheck} (default once a day). */
+    public int updateFrequency = UpdateCheck.DAILY;
 
     public Settings copy() {
         Settings s = new Settings();
@@ -92,6 +96,8 @@ public final class Settings {
         s.customFilterOn = customFilterOn;
         s.customFilter = customFilter;
         s.menuVolume = menuVolume;
+        s.useGenius = useGenius;
+        s.updateFrequency = updateFrequency;
         return s;
     }
 

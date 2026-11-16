@@ -11,8 +11,8 @@ android {
         applicationId 'com.lyricsstatus.poweramp'
         minSdk 26
         targetSdk 35
-        versionCode 9
-        versionName '0.9.2'
+        versionCode 10
+        versionName '0.10'
     }
 
     signingConfigs {
@@ -49,7 +49,7 @@ android {
 
     applicationVariants.all { variant ->
         variant.outputs.all {
-            outputFileName = "Android-Lyrics-Status-${variant.versionName}-${variant.buildType.name}.apk"
+            outputFileName = "LRCStatus-${variant.versionName}-${variant.buildType.name}.apk"
         }
     }
 }

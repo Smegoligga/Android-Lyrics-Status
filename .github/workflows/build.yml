@@ -48,7 +48,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Android-Lyrics-Status-apk
+          name: LRCStatus-apk
           path: app/build/outputs/apk/release/*.apk
 
       - name: Read app version
@@ -79,7 +79,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', steps.version.outputs.name) }}
-          name: Android Lyrics Status ${{ steps.version.outputs.name }}
+          name: LRCStatus ${{ steps.version.outputs.name }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           make_latest: false

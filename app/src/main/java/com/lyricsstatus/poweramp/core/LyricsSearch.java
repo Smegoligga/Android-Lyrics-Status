@@ -15,7 +15,7 @@ public final class LyricsSearch {
 
     private static final String BASE = "https://lrclib.net/api";
     static final Map<String, String> HEADERS = Collections.singletonMap(
-            "User-Agent", "AndroidLyricsStatus (https://github.com/Smegoligga/Android-Lyrics-Status)");
+            "User-Agent", "LRCStatus (https://github.com/Smegoligga/LRCStatus)");
 
     /** One LRCLIB record. */
     public static final class Record {
@@ -24,6 +24,10 @@ public final class LyricsSearch {
         public final double duration; // seconds
         public final boolean instrumental;
         public final String synced, plain;
+        /** Where these lyrics come from: "LRCLIB" or "Genius". */
+        public final String from;
+        /** Genius song page, when {@link #from} is Genius. */
+        public final String url;
 
         Record(JSONObject o) {
             id = o.optLong("id");
@@ -34,6 +38,26 @@ public final class LyricsSearch {
             instrumental = o.optBoolean("instrumental", false);
             synced = o.isNull("syncedLyrics") ? "" : o.optString("syncedLyrics", "");
             plain = o.isNull("plainLyrics") ? "" : o.optString("plainLyrics", "");
+            from = "LRCLIB";
+            url = "";
+        }
+
+        private Record(long id, String track, String artist, String plain, String url) {
+            this.id = id;
+            this.track = track;
+            this.artist = artist;
+            this.album = "";
+            this.duration = 0;
+            this.instrumental = false;
+            this.synced = "";
+            this.plain = plain;
+            this.from = "Genius";
+            this.url = url;
+        }
+
+        /** Plain lyrics read from a Genius song page. */
+        public static Record genius(GeniusClient.Hit h, String lyrics) {
+            return new Record(h.id, h.title, h.artist, lyrics, h.url);
         }
 
         public boolean isSynced() {

@@ -225,6 +225,10 @@ public final class App extends Application {
         if (settings.enabled) MediaListenerService.wake(this);
     }
 
+    public Prefs prefs() {
+        return prefs;
+    }
+
     public Engine engine() {
         return engine;
     }

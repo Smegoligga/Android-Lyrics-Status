@@ -10,6 +10,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.lyricsstatus.poweramp.core.GeniusClient;
 import com.lyricsstatus.poweramp.core.Lyrics;
 import com.lyricsstatus.poweramp.core.LyricsSearch;
 import com.lyricsstatus.poweramp.core.Overrides;
@@ -18,7 +19,7 @@ import com.lyricsstatus.poweramp.core.Track;
 import java.util.List;
 
 /**
- * Manual lyrics search by song, artist and album (LRCLIB). A result can be pinned to the current song, or its
+ * Manual lyrics search by song, artist and album (LRCLIB, plus Genius for plain lyrics). A result can be pinned to the current song, or its
  * album can be used for the current song's whole album (each song is then matched by name in that album).
  */
 public final class SearchActivity extends Activity {
@@ -36,6 +37,9 @@ public final class SearchActivity extends Activity {
     private int searchGen;
     private int sortMode = com.lyricsstatus.poweramp.core.LyricsSearch.SORT_BEST;
     private List<LyricsSearch.Record> lastResults;
+    /** Genius songs for the current search (lyrics are loaded when one is opened), or a reason there are none. */
+    private List<GeniusClient.Hit> geniusHits;
+    private String geniusNote;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -174,6 +178,31 @@ public final class SearchActivity extends Activity {
         final boolean usingPrefill = !adv && playing != null && q.trim().equals(prefilled);
         final int gen = ++searchGen;
         status.setText("Searching…");
+        geniusHits = null;
+        geniusNote = null;
+        render(null);
+        if (app.settings().useGenius) {
+            final String gq = adv ? (s + " " + a).trim() : q.trim();
+            app.io.execute(() -> {
+                List<GeniusClient.Hit> hits = null;
+                String note = null;
+                try {
+                    hits = GeniusClient.search(gq.isEmpty() ? al : gq);
+                } catch (GeniusClient.BotCheck e) {
+                    note = "Genius asked for a human check, so it was skipped this time.";
+                } catch (Exception e) {
+                    note = "Couldn't reach Genius.";
+                }
+                final List<GeniusClient.Hit> fh = hits;
+                final String fn = note;
+                app.main.post(() -> {
+                    if (gen != searchGen || isFinishing()) return;
+                    geniusHits = fh;
+                    geniusNote = fn;
+                    render(lastResults);
+                });
+            });
+        }
         app.io.execute(() -> {
             List<LyricsSearch.Record> list = null;
             String err = null;
@@ -199,6 +228,7 @@ public final class SearchActivity extends Activity {
                 if (gen != searchGen || isFinishing()) return;
                 if (fe != null) {
                     status.setText(fe);
+                    render(new java.util.ArrayList<>());
                     return;
                 }
                 status.setText(fl.isEmpty() ? "Nothing found. Try fewer words or tick Ignore feat./prod."
@@ -211,8 +241,9 @@ public final class SearchActivity extends Activity {
     private void render(List<LyricsSearch.Record> list) {
         lastResults = list;
         results.removeAllViews();
-        if (list.isEmpty()) {
-            results.addView(skin.hint("No results."));
+        if (list == null || list.isEmpty()) {
+            results.addView(skin.hint(list == null ? "Searching LRCLIB…" : "No results on LRCLIB."));
+            renderGenius();
             return;
         }
         long dur = track != null ? track.durationMs : 0;
@@ -224,6 +255,85 @@ public final class SearchActivity extends Activity {
                     && LyricsSearch.isGoodMatch(r, dur, title);
             results.addView(row(r, best));
         }
+        renderGenius();
+    }
+
+    /** Genius songs under the LRCLIB results: plain lyrics, loaded when opened. */
+    private void renderGenius() {
+        if (!app.settings().useGenius) return;
+        TextView head = skin.label("Genius (plain lyrics, not synced)");
+        head.setPadding(0, skin.dp(14), 0, skin.dp(2));
+        results.addView(head);
+        if (geniusHits == null) {
+            results.addView(skin.hint(geniusNote != null ? geniusNote : "Searching Genius…"));
+            return;
+        }
+        if (geniusHits.isEmpty()) {
+            results.addView(skin.hint("Nothing on Genius."));
+            return;
+        }
+        for (GeniusClient.Hit h : geniusHits) results.addView(geniusRow(h));
+    }
+
+    private View geniusRow(GeniusClient.Hit h) {
+        LinearLayout box = skin.box();
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = skin.dp(6);
+        box.setLayoutParams(lp);
+        box.addView(skin.text(h.title, 15, true));
+        box.addView(skin.hint(h.artist + (h.year > 0 ? " · " + h.year : "")));
+        box.addView(skin.hint("Genius · not synced · tap to see the lyrics"));
+        LinearLayout detail = new LinearLayout(this);
+        detail.setOrientation(LinearLayout.VERTICAL);
+        detail.setVisibility(View.GONE);
+        box.addView(detail);
+        final boolean[] loading = {false};
+        box.setOnClickListener(v -> {
+            if (detail.getVisibility() == View.VISIBLE) {
+                detail.setVisibility(View.GONE);
+                return;
+            }
+            detail.setVisibility(View.VISIBLE);
+            if (detail.getChildCount() > 0 || loading[0]) return;
+            loading[0] = true;
+            TextView wait = skin.hint("Loading from Genius…");
+            detail.addView(wait);
+            app.io.execute(() -> {
+                LyricsSearch.Record rec = null;
+                String err = null;
+                boolean bot = false;
+                try {
+                    rec = LyricsSearch.Record.genius(h, GeniusClient.lyrics(h.url));
+                } catch (GeniusClient.BotCheck e) {
+                    err = e.getMessage();
+                    bot = true;
+                } catch (Exception e) {
+                    err = e.getMessage() != null ? e.getMessage() : "Couldn't load it";
+                }
+                final LyricsSearch.Record fr = rec;
+                final String fe = err;
+                final boolean fb = bot;
+                app.main.post(() -> {
+                    loading[0] = false;
+                    if (isFinishing()) return;
+                    detail.removeAllViews();
+                    if (fr != null) {
+                        fillDetail(detail, fr);
+                        return;
+                    }
+                    detail.addView(skin.hint(fe));
+                    if (fb) detail.addView(skin.button("Open on Genius", false, x -> {
+                        try {
+                            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(h.url)));
+                        } catch (Exception ignored) {
+                        }
+                    }));
+                });
+            });
+        });
+        sfx.wire(box, Sfx.MENU);
+        return box;
     }
 
     /** One result: title + details; tap to preview and choose. */
